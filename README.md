@@ -8,3 +8,8 @@ An initial attempt to replicate my [Electric Imp clock project](https://github.c
 
 Currently, the clock has no remote control, which the Electric Imp Platform makes very easy to implement, but is rather less so here. Adding a web UI, served locally or remotely, is the next phase of the project.
 
+### To Do ###
+
+- Better disconnection handling.
+- Better handling of connection timeouts and *settime()* timeouts.
+- Web UI for clock settings control.

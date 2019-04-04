@@ -1,7 +1,7 @@
 """
 Clock.py - a very simple four-digit timepiece
 
-Version:   1.0.0
+Version:   1.0.1
 Author:    smittytone
 Copyright: 2019, Tony Smith
 Licence:   MIT
@@ -20,20 +20,13 @@ import network
 Constants
 (see http://docs.micropython.org/en/latest/reference/speed_python.html#the-const-declaration)
 """
-HT16K33_BLINK_CMD        = const(0x80)
-HT16K33_BLINK_DISPLAY_ON = const(0x01)
-HT16K33_CMD_BRIGHTNESS   = const(0xE0)
-HT16K33_SYSTEM_ON        = const(0x21)
-HT16K33_COLON_ROW        = const(0x04)
-HT16K33_MINUS_CHAR       = const(0x10)
-HT16K33_DEGREE_CHAR      = const(0x11)
-
-"""
-Bytearray of the key alphanumeric characters we can show:
-    0-9, A-F, minus, degree
-"""
-HT16K33_CHARS = b'\x3F\x06\x5B\x4F\x66\x6D\x7D\x07\x7F\x6F\x5F\x7C\x58\x5E\x7B\x71\x40\x63'
-
+_HT16K33_BLINK_CMD        = const(0x80)
+_HT16K33_BLINK_DISPLAY_ON = const(0x01)
+_HT16K33_CMD_BRIGHTNESS   = const(0xE0)
+_HT16K33_SYSTEM_ON        = const(0x21)
+_HT16K33_COLON_ROW        = const(0x04)
+_HT16K33_MINUS_CHAR       = const(0x10)
+_HT16K33_DEGREE_CHAR      = const(0x11)
 
 class HT16K33Segment:
     """
@@ -44,11 +37,16 @@ class HT16K33Segment:
     # The positions of the segments within the buffer
     pos = [0, 2, 6, 8]
 
+    # Bytearray of the key alphanumeric characters we can show:
+    # 0-9, A-F, minus, degree
+    chars = b'\x3F\x06\x5B\x4F\x66\x6D\x7D\x07\x7F\x6F\x5F\x7C\x58\x5E\x7B\x71\x40\x63'
+
+
     def __init__(self, i2c, address=0x70):
         self.i2c = i2c
         self.address = address
         self.buffer = bytearray(16)
-        self._writeCmd(HT16K33_SYSTEM_ON)
+        self._writeCmd(_HT16K33_SYSTEM_ON)
         self.setBlinkRate()
         self.setBrightness(15)
 
@@ -65,7 +63,7 @@ class HT16K33Segment:
         if not rate in rates: return
         rate = rate & 0x03
         self.blinkrate = rate
-        self._writeCmd(HT16K33_BLINK_CMD | HT16K33_BLINK_DISPLAY_ON | rate << 1)
+        self._writeCmd(_HT16K33_BLINK_CMD | _HT16K33_BLINK_DISPLAY_ON | rate << 1)
 
     def setBrightness(self, brightness=15):
         """
@@ -79,7 +77,7 @@ class HT16K33Segment:
         if brightness < 0 or brightness > 15: brightness = 15
         brightness = brightness & 0x0F
         self.brightness = brightness
-        self._writeCmd(HT16K33_CMD_BRIGHTNESS | brightness)
+        self._writeCmd(_HT16K33_CMD_BRIGHTNESS | brightness)
 
     def setGlyph(self, glyph, digit=0, hasDot=False):
         """
@@ -145,7 +143,7 @@ class HT16K33Segment:
         if char in 'abcdef':
             c = ord(char) - 87
         elif char == '-':
-            c = HT16K33_MINUS_CHAR
+            c = _HT16K33_MINUS_CHAR
         elif char in '0123456789':
             c = ord(char) - 48
         elif char == ' ':
@@ -153,7 +151,7 @@ class HT16K33Segment:
         else:
             return
 
-        self.buffer[self.pos[digit]] = HT16K33_CHARS[c]
+        self.buffer[self.pos[digit]] = self.chars[c]
         if hasDot is True: self.buffer[self.pos[digit]] |= 0b10000000
 
     def setColon(self, isSet=True):
@@ -166,7 +164,7 @@ class HT16K33Segment:
         Args:
             isSet (bool): Whether the colon is lit (True) or not (False). Default: True.
         """
-        self.buffer[HT16K33_COLON_ROW] = 0x02 if isSet is True else 0x00
+        self.buffer[_HT16K33_COLON_ROW] = 0x02 if isSet is True else 0x00
 
     def clear(self):
         """
@@ -285,12 +283,14 @@ def connect():
     progress. Upon connection, set the RTC then start the clock.
     NOTE Replace '@SSID' and '@PASS' with your own WiFi credentials.
     """
+    global wout
+
     state = True
-    wlan = network.WLAN(network.STA_IF)
-    wlan.active(True)
-    if not wlan.isconnected():
-        wlan.connect('@SSID', '@PASS')
-        while not wlan.isconnected():
+    wout = network.WLAN(network.STA_IF)
+    wout.active(True)
+    if not wout.isconnected():
+        wout.connect('@SSID', '@PASS')
+        while not wout.isconnected():
             sleep(0.5)
             matrix.setGlyph(0x39, 3, state)
             matrix.update()
@@ -330,6 +330,7 @@ def clock():
         if hour > 11: pm = True
         
         # Calculate and set the minutes digits
+        # NOTE digit three's decimal point is use to indicate AM/PM
         if min < 10:
             matrix.setNumber(0, 2, False)
             matrix.setNumber(min, 3, pm)
@@ -345,14 +346,15 @@ def clock():
             if pm is True: h = h - 12
             if h == 0: h = 12
 
+        # NOTE digit zero's decimal point is use to indicate disconnection
         if h < 10:
             matrix.setNumber(h, 1, False)
-            matrix.setChar((' ' if mode is False else '0'), 0, False)
+            matrix.setChar((' ' if mode is False else '0'), 0, (not wout.isconnected()))
         else:
             a = int(h / 10)
             b = h - (a * 10)
             matrix.setNumber(b, 1, False)
-            matrix.setNumber(a, 0, False)
+            matrix.setNumber(a, 0, (not wout.isconnected()))
 
         # Set the colon and present the display
         matrix.setColon(sec % 2 == 0)
@@ -375,6 +377,7 @@ def syncText():
 This is the simple runtime start point.
 Set up the display on I2C
 """
+wout = None
 i2c = I2C(scl=Pin(5), sda=Pin(4))
 matrix = HT16K33Segment(i2c)
 matrix.setBrightness(10)

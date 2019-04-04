@@ -1,4 +1,13 @@
 """
+Clock.py - a very simple four-digit timepiece
+
+Version:   1.0.0
+Author:    smittytone
+Copyright: 2019, Tony Smith
+Licence:   MIT
+"""
+
+"""
 Imports
 """
 from micropython import const
@@ -343,7 +352,7 @@ def clock():
             a = int(h / 10)
             b = h - (a * 10)
             matrix.setNumber(b, 1, False)
-            matrix.setNumber(a, 0, (pm if mode is False else False))
+            matrix.setNumber(a, 0, False)
 
         # Set the colon and present the display
         matrix.setColon(sec % 2 == 0)

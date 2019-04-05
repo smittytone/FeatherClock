@@ -1,7 +1,7 @@
 """
 Clock.py - a very simple four-digit timepiece
 
-Version:   1.0.1
+Version:   1.0.2
 Author:    smittytone
 Copyright: 2019, Tony Smith
 Licence:   MIT
@@ -359,6 +359,15 @@ def clock():
         # Set the colon and present the display
         matrix.setColon(sec % 2 == 0)
         matrix.update()
+
+        # Every two hours re-sync the RTC
+        # (which is poor, see http://docs.micropython.org/en/latest/esp8266/general.html#real-time-clock)
+        if hour % 2 == 0: 
+            try:
+                settime()
+            except err:
+                # Just do anything to absorb the error
+                a = err
 
 
 def syncText():

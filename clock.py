@@ -283,7 +283,7 @@ def connect():
     progress. Upon connection, set the RTC then start the clock.
     NOTE Replace '@SSID' and '@PASS' with your own WiFi credentials.
     """
-    global wout
+    global wout, timecheck
 
     state = True
     wout = network.WLAN(network.STA_IF)
@@ -298,6 +298,7 @@ def connect():
 
     # Connection succeeded, so set the RTC
     settime()
+    timecheck = True
 
     # Clear the display and start the clock loop
     matrix.clear()
@@ -315,6 +316,8 @@ def clock():
             You will need to alter that call if you use some other form of daylight
             savings calculation.
     """
+    global timecheck
+
     mode = False
 
     while True:
@@ -362,12 +365,14 @@ def clock():
 
         # Every two hours re-sync the RTC
         # (which is poor, see http://docs.micropython.org/en/latest/esp8266/general.html#real-time-clock)
-        if hour % 2 == 0: 
+        if hour % 2 == 0 and wout.isconnected() and timecheck is False: 
+            timecheck = True
             try:
                 settime()
             except err:
                 # Just do anything to absorb the error
-                a = err
+                timecheck = False
+        if hour % 2 > 0: timecheck = False
 
 
 def syncText():
@@ -387,6 +392,7 @@ This is the simple runtime start point.
 Set up the display on I2C
 """
 wout = None
+timecheck = False
 i2c = I2C(scl=Pin(5), sda=Pin(4))
 matrix = HT16K33Segment(i2c)
 matrix.setBrightness(10)

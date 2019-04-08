@@ -1,7 +1,7 @@
 """
 Clock.py - a very simple four-digit timepiece
 
-Version:   1.0.2
+Version:   1.0.3
 Author:    smittytone
 Copyright: 2019, Tony Smith
 Licence:   MIT
@@ -10,11 +10,14 @@ Licence:   MIT
 """
 Imports
 """
+import usocket as socket
+import ustruct as struct
+import network
 from micropython import const
 from ntptime     import settime
 from machine     import I2C, Pin
 from utime       import localtime, sleep
-import network
+
 
 """
 Constants
@@ -276,6 +279,36 @@ def isLeapYear(y):
     return False
 
 
+def getTime(timeout):
+    # https://github.com/micropython/micropython/blob/master/ports/esp8266/modules/ntptime.py
+    # Modify the standard code to extend the timeout, and catch OSErrors triggered when the
+    # socket operation times out
+    q = bytearray(48)
+    q[0] = 0x1b
+    a = socket.getaddrinfo("pool.ntp.org", 123)[0][-1]
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.settimeout(timeout)
+    try:
+        res = s.sendto(q, a)
+        msg = s.recv(48)
+        s.close()
+        val = struct.unpack("!I", msg[40:44])[0]
+        return val - 3155673600
+    except:
+        s.close()
+        return None
+
+
+def setRTC(timeout=10):
+    t = getTime(timeout)
+    if t is not None:
+        tm = localtime(t)
+        tm = tm[0:3] + (0,) + tm[3:6] + (0,)
+        machine.RTC().datetime(tm)
+        return True
+    return False
+
+
 def connect():
     """
     Attempt to connect to the Internet as a station, and flash the decimal
@@ -297,8 +330,8 @@ def connect():
             state = not state
 
     # Connection succeeded, so set the RTC
-    settime()
-    timecheck = True
+    matrix.setGlyph(0x39, 3, True)
+    timecheck = setRTC(30)
 
     # Clear the display and start the clock loop
     matrix.clear()
@@ -366,12 +399,8 @@ def clock():
         # Every two hours re-sync the RTC
         # (which is poor, see http://docs.micropython.org/en/latest/esp8266/general.html#real-time-clock)
         if hour % 2 == 0 and wout.isconnected() and timecheck is False: 
-            timecheck = True
-            try:
-                settime()
-            except err:
-                # Just do anything to absorb the error
-                timecheck = False
+            timecheck = setRTC()
+        # Reset the 'do check' flag every other hour
         if hour % 2 > 0: timecheck = False
 
 

@@ -1,7 +1,7 @@
 """
 Clock.py - a very simple four-digit timepiece
 
-Version:   1.0.3
+Version:   1.0.4
 Author:    smittytone
 Copyright: 2019, Tony Smith
 Licence:   MIT
@@ -14,8 +14,7 @@ import usocket as socket
 import ustruct as struct
 import network
 from micropython import const
-from ntptime     import settime
-from machine     import I2C, Pin
+from machine     import I2C, Pin, RTC
 from utime       import localtime, sleep
 
 
@@ -23,17 +22,17 @@ from utime       import localtime, sleep
 Constants
 (see http://docs.micropython.org/en/latest/reference/speed_python.html#the-const-declaration)
 """
-_HT16K33_BLINK_CMD        = const(0x80)
+_HT16K33_BLINK_CMD = const(0x80)
 _HT16K33_BLINK_DISPLAY_ON = const(0x01)
-_HT16K33_CMD_BRIGHTNESS   = const(0xE0)
-_HT16K33_SYSTEM_ON        = const(0x21)
-_HT16K33_COLON_ROW        = const(0x04)
-_HT16K33_MINUS_CHAR       = const(0x10)
-_HT16K33_DEGREE_CHAR      = const(0x11)
+_HT16K33_CMD_BRIGHTNESS = const(0xE0)
+_HT16K33_SYSTEM_ON = const(0x21)
+_HT16K33_COLON_ROW = const(0x04)
+_HT16K33_MINUS_CHAR = const(0x10)
+_HT16K33_DEGREE_CHAR = const(0x11)
 
 class HT16K33Segment:
     """
-    A simple driver for the I2C-connected Holtek HT16K33 controller chip and a four-digit, 
+    A simple driver for the I2C-connected Holtek HT16K33 controller chip and a four-digit,
     seven-segment LED connected to it. For example: https://learn.adafruit.com/adafruit-7-segment-led-featherwings/overview
     """
 
@@ -49,11 +48,11 @@ class HT16K33Segment:
         self.i2c = i2c
         self.address = address
         self.buffer = bytearray(16)
-        self._writeCmd(_HT16K33_SYSTEM_ON)
-        self.setBlinkRate()
-        self.setBrightness(15)
+        self._write_cmd(_HT16K33_SYSTEM_ON)
+        self.set_blink_rate()
+        self.set_brightness(15)
 
-    def setBlinkRate(self, rate=0):
+    def set_blink_rate(self, rate=0):
         """
         Set the display's flash rate.
 
@@ -63,12 +62,12 @@ class HT16K33Segment:
             rate (int): The chosen flash rate. Default: 0Hz.
         """
         rates = (0, 2, 1, 0.5)
-        if not rate in rates: return
+        if rate not in rates: return
         rate = rate & 0x03
-        self.blinkrate = rate
-        self._writeCmd(_HT16K33_BLINK_CMD | _HT16K33_BLINK_DISPLAY_ON | rate << 1)
+        self.blink_rate = rate
+        self._write_cmd(_HT16K33_BLINK_CMD | _HT16K33_BLINK_DISPLAY_ON | rate << 1)
 
-    def setBrightness(self, brightness=15):
+    def set_brightness(self, brightness=15):
         """
         Set the display's brightness (ie. duty cycle).
 
@@ -80,9 +79,9 @@ class HT16K33Segment:
         if brightness < 0 or brightness > 15: brightness = 15
         brightness = brightness & 0x0F
         self.brightness = brightness
-        self._writeCmd(_HT16K33_CMD_BRIGHTNESS | brightness)
+        self._write_cmd(_HT16K33_CMD_BRIGHTNESS | brightness)
 
-    def setGlyph(self, glyph, digit=0, hasDot=False):
+    def set_glyph(self, glyph, digit=0, has_dot=False):
         """
         Present a user-defined character glyph at the specified digit.
 
@@ -105,13 +104,13 @@ class HT16K33Segment:
         Args:
             glyph (int):   The glyph pattern.
             digit (int):   The digit to show the glyph. Default: 0 (leftmost digit).
-            hasDot (bool): Whether the decimal point to the right of the digit should be lit. Default: False.
+            has_dot (bool): Whether the decimal point to the right of the digit should be lit. Default: False.
         """
         if not 0 <= digit <= 3: return
         self.buffer[self.pos[digit]] = glyph
-        if hasDot is True: self.buffer[self.pos[digit]] |= 0b10000000
+        if has_dot is True: self.buffer[self.pos[digit]] |= 0b10000000
 
-    def setNumber(self, number, digit=0, hasDot=False):
+    def set_number(self, number, digit=0, has_dot=False):
         """
         Present single decimal value (0-9) at the specified digit.
 
@@ -121,11 +120,11 @@ class HT16K33Segment:
         Args:
             number (int):  The number to show.
             digit (int):   The digit to show the number. Default: 0 (leftmost digit).
-            hasDot (bool): Whether the decimal point to the right of the digit should be lit. Default: False.
+            has_dot (bool): Whether the decimal point to the right of the digit should be lit. Default: False.
         """
-        self.setChar(str(number), digit, hasDot)
+        self.set_char(str(number), digit, has_dot)
 
-    def setChar(self, char, digit=0, hasDot=False):
+    def set_char(self, char, digit=0, has_dot=False):
         """
         Present single alphanumeric character at the specified digit.
 
@@ -139,25 +138,25 @@ class HT16K33Segment:
         Args:
             char (string): The character to show.
             digit (int):   The digit to show the number. Default: 0 (leftmost digit).
-            hasDot (bool): Whether the decimal point to the right of the digit should be lit. Default: False.
+            has_dot (bool): Whether the decimal point to the right of the digit should be lit. Default: False.
         """
         if not 0 <= digit <= 3: return
         char = char.lower()
         if char in 'abcdef':
-            c = ord(char) - 87
+            char_val = ord(char) - 87
         elif char == '-':
-            c = _HT16K33_MINUS_CHAR
+            char_val = _HT16K33_MINUS_CHAR
         elif char in '0123456789':
-            c = ord(char) - 48
+            char_val = ord(char) - 48
         elif char == ' ':
-            c = 0x00
+            char_val = 0x00
         else:
             return
 
-        self.buffer[self.pos[digit]] = self.chars[c]
-        if hasDot is True: self.buffer[self.pos[digit]] |= 0b10000000
+        self.buffer[self.pos[digit]] = self.chars[char_val]
+        if has_dot is True: self.buffer[self.pos[digit]] |= 0b10000000
 
-    def setColon(self, isSet=True):
+    def set_colon(self, is_set=True):
         """
         Set or unset the display's central colon symbol.
 
@@ -167,7 +166,7 @@ class HT16K33Segment:
         Args:
             isSet (bool): Whether the colon is lit (True) or not (False). Default: True.
         """
-        self.buffer[_HT16K33_COLON_ROW] = 0x02 if isSet is True else 0x00
+        self.buffer[_HT16K33_COLON_ROW] = 0x02 if is_set is True else 0x00
 
     def clear(self):
         """
@@ -177,7 +176,7 @@ class HT16K33Segment:
         Call 'update()' to render the buffer on the display.
         """
         buff = self.buffer
-        for i in range(16): buff[i] = 0x00
+        for index in range(16): buff[index] = 0x00
 
     def update(self):
         """
@@ -188,7 +187,7 @@ class HT16K33Segment:
         """
         self.i2c.writeto_mem(self.address, 0x00, self.buffer)
 
-    def _writeCmd(self, byte):
+    def _write_cmd(self, byte):
         """
         Writes a single command to the HT16K33. A private method.
 
@@ -200,7 +199,7 @@ class HT16K33Segment:
         self.i2c.writeto(self.address, temp)
 
 
-def isBST(n=None):
+def is_bst(now=None):
     """
     Convenience function for 'bstCheck()'.
 
@@ -211,10 +210,10 @@ def isBST(n=None):
     Returns:
         bool: Whether the specified date is within the BST period (true), or not (false).
     """
-    return bstCheck(n)
+    return bst_check(now)
 
 
-def bstCheck(n=None):
+def bst_check(now=None):
     """
     Determine whether the specified date lies within the British Summer Time period.
 
@@ -225,23 +224,24 @@ def bstCheck(n=None):
     Returns:
         bool: Whether the specified date is within the BST period (true), or not (false).
     """
-    if n == None: n = localtime()
-    if n[1] > 3 and n[2] < 10: return True
+    if now is None: now = localtime()
+    
+    if now[1] > 3 and now[2] < 10: return True
 
-    if n[1] == 3:
+    if now[1] == 3:
         # BST starts on the last Sunday of March
-        for i in range(31, 24, -1):
-            if dayOfWeek(i, 3, n[0]) == 0 and n[3] >= i: return True
+        for index in range(31, 24, -1):
+            if day_of_week(index, 3, now[0]) == 0 and now[3] >= index: return True
 
-    if n[1] == 10:
+    if now[1] == 10:
         # BST ends on the last Sunday of October
-        for i in range(31, 24, -1):
-            if dayOfWeek(i, 10, n[0]) == 0 and n[3] < i: return True
+        for index in range(31, 24, -1):
+            if day_of_week(index, 10, now[0]) == 0 and now[3] < index: return True
 
     return False
 
 
-def dayOfWeek(d, m, y):
+def day_of_week(day, month, year):
     """
     Determine the day of the week for a given day, month and year, using
     Zeller's Rule (see http://mathforum.org/dr.math/faq/faq.calendar.html).
@@ -254,18 +254,18 @@ def dayOfWeek(d, m, y):
     Returns:
         int: The day of the week: 0 (Monday) to 6 (Sunday).
     """
-    m -= 2
-    if m < 1: m += 12
-    e = int(str(y)[2:])
-    s = int(str(y)[:2])
-    t = e - 1 if m > 10 else e
-    f = d + int((13 * m - 1) / 5) + t + int(t / 4) + int(s / 4) - (2 * s)
-    f = f % 7
-    if f < 0: f += 7
-    return f
+    month -= 2
+    if month < 1: month += 12
+    century = int(str(year)[:2])
+    year = int(str(year)[2:])
+    year = year - 1 if month > 10 else year
+    dow = day + int((13 * month - 1) / 5) + year + int(year / 4) + int(century / 4) - (2 * century)
+    dow = dow % 7
+    if dow < 0: dow += 7
+    return dow
 
 
-def isLeapYear(y):
+def is_leap_year(year):
     """
     Is the current year a leap year?
 
@@ -275,36 +275,36 @@ def isLeapYear(y):
     Returns:
         bool: Whether the year is a leap year (True) or not (False).
     """
-    if y % 4 == 0 and (y % 100 > 0 or y % 400 == 0): return True
+    if year % 4 == 0 and (year % 100 > 0 or year % 400 == 0): return True
     return False
 
 
-def getTime(timeout):
+def get_time(timeout):
     # https://github.com/micropython/micropython/blob/master/ports/esp8266/modules/ntptime.py
     # Modify the standard code to extend the timeout, and catch OSErrors triggered when the
     # socket operation times out
-    q = bytearray(48)
-    q[0] = 0x1b
-    a = socket.getaddrinfo("pool.ntp.org", 123)[0][-1]
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.settimeout(timeout)
+    ntp_query = bytearray(48)
+    ntp_query[0] = 0x1b
+    address = socket.getaddrinfo("pool.ntp.org", 123)[0][-1]
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(timeout)
     try:
-        res = s.sendto(q, a)
-        msg = s.recv(48)
-        s.close()
+        _ = sock.sendto(ntp_query, address)
+        msg = sock.recv(48)
+        sock.close()
         val = struct.unpack("!I", msg[40:44])[0]
         return val - 3155673600
-    except:
-        s.close()
+    except OSError:
+        sock.close()
         return None
 
 
-def setRTC(timeout=10):
-    t = getTime(timeout)
-    if t is not None:
-        tm = localtime(t)
-        tm = tm[0:3] + (0,) + tm[3:6] + (0,)
-        machine.RTC().datetime(tm)
+def set_rtc(timeout=10):
+    now_time = getTime(timeout)
+    if now_time is not None:
+        time_data = localtime(now_time)
+        time_data = time_data[0:3] + (0,) + time_data[3:6] + (0,)
+        RTC().datetime(time_data)
         return True
     return False
 
@@ -316,7 +316,7 @@ def connect():
     progress. Upon connection, set the RTC then start the clock.
     NOTE Replace '@SSID' and '@PASS' with your own WiFi credentials.
     """
-    global wout, timecheck
+    global wout
 
     state = True
     wout = network.WLAN(network.STA_IF)
@@ -325,20 +325,20 @@ def connect():
         wout.connect('@SSID', '@PASS')
         while not wout.isconnected():
             sleep(0.5)
-            matrix.setGlyph(0x39, 3, state)
+            matrix.set_glyph(0x39, 3, state)
             matrix.update()
             state = not state
 
     # Connection succeeded, so set the RTC
-    matrix.setGlyph(0x39, 3, True)
-    timecheck = setRTC(30)
+    matrix.set_glyph(0x39, 3, True)
+    timecheck = set_rtc(30)
 
     # Clear the display and start the clock loop
     matrix.clear()
-    clock()
+    clock(timecheck)
 
 
-def clock():
+def clock(timecheck):
     """
     The primary clock routine: in infinite loop that displays the time
     from the UTC every pass and flips the display's central colon every
@@ -349,62 +349,64 @@ def clock():
             You will need to alter that call if you use some other form of daylight
             savings calculation.
     """
-    global timecheck
 
     mode = False
 
     while True:
         now = localtime()
-        hour = now[3]
-        min  = now[4]
-        sec  = now[5]
+        now_hour = now[3]
+        now_min = now[4]
+        now_sec = now[5]
 
-        if isBST(now): hour += 1
-        if hour > 23: hour =- 23
+        if is_bst(now): now_hour += 1
+        if now_hour > 23: now_hour -= 23
 
-        pm = False
-        if hour > 11: pm = True
+        is_pm = False
+        if now_hour > 11: is_pm = True
         
         # Calculate and set the minutes digits
         # NOTE digit three's decimal point is use to indicate AM/PM
-        if min < 10:
-            matrix.setNumber(0, 2, False)
-            matrix.setNumber(min, 3, pm)
+        if now_min < 10:
+            matrix.set_number(0, 2, False)
+            matrix.set_number(now_min, 3, is_pm)
         else:
-            a = int(min / 10)
-            b = min - (a * 10)
-            matrix.setNumber(a, 2, False)
-            matrix.setNumber(b, 3, pm)
+            digit_a = int(now_min / 10)
+            digit_b = now_min - (digit_a * 10)
+            matrix.set_number(digit_a, 2, False)
+            matrix.set_number(digit_b, 3, is_pm)
 
         # Calculate and set the hours digits
-        h = hour
+        hour = now_hour
         if mode is False:
-            if pm is True: h = h - 12
-            if h == 0: h = 12
+            if is_pm is True: hour -= 12
+            if hour == 0: hour = 12
 
         # NOTE digit zero's decimal point is use to indicate disconnection
-        if h < 10:
-            matrix.setNumber(h, 1, False)
-            matrix.setChar((' ' if mode is False else '0'), 0, (not wout.isconnected()))
+        if hour < 10:
+            matrix.set_number(hour, 1, False)
+            if mode is False:
+                matrix.set_glyph(0, 0, not wout.isconnected())
+            else:
+                matrix.set_char('0', 0, not wout.isconnected())
         else:
-            a = int(h / 10)
-            b = h - (a * 10)
-            matrix.setNumber(b, 1, False)
-            matrix.setNumber(a, 0, (not wout.isconnected()))
-
+            digit_a = int(hour / 10)
+            digit_b = hour - (digit_a * 10)
+            matrix.set_number(digit_a, 0, not wout.isconnected())
+            matrix.set_number(digit_b, 1, False)
+            
         # Set the colon and present the display
-        matrix.setColon(sec % 2 == 0)
+        matrix.set_colon(now_sec % 2 == 0)
         matrix.update()
 
         # Every two hours re-sync the RTC
         # (which is poor, see http://docs.micropython.org/en/latest/esp8266/general.html#real-time-clock)
-        if hour % 2 == 0 and wout.isconnected() and timecheck is False: 
-            timecheck = setRTC()
+        if now_hour % 2 == 0 and wout.isconnected() and timecheck is False: 
+            timecheck = set_rtc()
         # Reset the 'do check' flag every other hour
-        if hour % 2 > 0: timecheck = False
+        if now_hour % 2 > 0: timecheck = False
 
 
-def syncText():
+def sync_text():
     """
     This function displays the text 'SYNC' on the display while the 
     newly booted clock is connecting to the Internet and getting the
@@ -412,7 +414,7 @@ def syncText():
     """
     matrix.clear()
     sync = b'\x6D\x6E\x37\x39'
-    for i in range(0, 4): matrix.setGlyph(sync[i], i)
+    for i in range(0, 4): matrix.set_glyph(sync[i], i)
     matrix.update()
 
 
@@ -421,12 +423,11 @@ This is the simple runtime start point.
 Set up the display on I2C
 """
 wout = None
-timecheck = False
 i2c = I2C(scl=Pin(5), sda=Pin(4))
 matrix = HT16K33Segment(i2c)
-matrix.setBrightness(10)
+matrix.set_brightness(10)
 
 # Display 'sync' on the display while connecting,
 # and attempt to connect
-syncText()
+sync_text()
 connect()

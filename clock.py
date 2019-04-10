@@ -1,7 +1,7 @@
 """
 Clock.py - a very simple four-digit timepiece
 
-Version:   1.0.4
+Version:   1.0.5
 Author:    smittytone
 Copyright: 2019, Tony Smith
 Licence:   MIT
@@ -226,7 +226,7 @@ def bst_check(now=None):
     """
     if now is None: now = localtime()
     
-    if now[1] > 3 and now[2] < 10: return True
+    if now[1] > 3 and now[1] < 10: return True
 
     if now[1] == 3:
         # BST starts on the last Sunday of March
@@ -300,7 +300,7 @@ def get_time(timeout):
 
 
 def set_rtc(timeout=10):
-    now_time = getTime(timeout)
+    now_time = get_time(timeout)
     if now_time is not None:
         time_data = localtime(now_time)
         time_data = time_data[0:3] + (0,) + time_data[3:6] + (0,)
@@ -358,7 +358,7 @@ def clock(timecheck):
         now_min = now[4]
         now_sec = now[5]
 
-        if is_bst(now): now_hour += 1
+        if is_bst(): now_hour += 1
         if now_hour > 23: now_hour -= 23
 
         is_pm = False

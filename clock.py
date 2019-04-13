@@ -1,7 +1,7 @@
 """
 Clock.py - a very simple four-digit timepiece
 
-Version:   1.0.5
+Version:   1.0.6
 Author:    smittytone
 Copyright: 2019, Tony Smith
 Licence:   MIT
@@ -29,6 +29,7 @@ _HT16K33_SYSTEM_ON = const(0x21)
 _HT16K33_COLON_ROW = const(0x04)
 _HT16K33_MINUS_CHAR = const(0x10)
 _HT16K33_DEGREE_CHAR = const(0x11)
+
 
 class HT16K33Segment:
     """
@@ -88,7 +89,7 @@ class HT16K33Segment:
         Glyph values are 8-bit integers representing a pattern of set LED segments.
         The value is calculated by setting the bit(s) representing the segment(s) you want illuminated.
         Bit-to-segment mapping runs clockwise from the top around the outside of the matrix; the inner segment is bit 6:
-    
+
                 0
                 _
             5 |   | 1
@@ -162,7 +163,7 @@ class HT16K33Segment:
 
         This method updates the display buffer, but does not send the buffer to the display itself.
         Call 'update()' to render the buffer on the display.
-        
+
         Args:
             isSet (bool): Whether the colon is lit (True) or not (False). Default: True.
         """
@@ -204,7 +205,7 @@ def is_bst(now=None):
     Convenience function for 'bstCheck()'.
 
     Args:
-        n (tuple): An 8-tuple indicating the request date 
+        n (tuple): An 8-tuple indicating the request date
             (see http://docs.micropython.org/en/latest/library/utime.html?highlight=localtime#utime.localtime).
 
     Returns:
@@ -218,14 +219,14 @@ def bst_check(now=None):
     Determine whether the specified date lies within the British Summer Time period.
 
     Args:
-        n (tuple): An 8-tuple indicating the request date 
+        n (tuple): An 8-tuple indicating the request date
             (see http://docs.micropython.org/en/latest/library/utime.html?highlight=localtime#utime.localtime).
 
     Returns:
         bool: Whether the specified date is within the BST period (true), or not (false).
     """
     if now is None: now = localtime()
-    
+
     if now[1] > 3 and now[1] < 10: return True
 
     if now[1] == 3:
@@ -309,6 +310,16 @@ def set_rtc(timeout=10):
     return False
 
 
+def defaultPrefs():
+    global prefs
+    prefs = {}
+    prefs["mode"] = False
+    prefs["colon"] = True
+    prefs["flash"] = True
+    prefs["bright"] = 10
+    prefs["bst"] = True
+
+
 def connect():
     """
     Attempt to connect to the Internet as a station, and flash the decimal
@@ -342,15 +353,13 @@ def clock(timecheck):
     """
     The primary clock routine: in infinite loop that displays the time
     from the UTC every pass and flips the display's central colon every
-    second. 
-    NOTE #1 Change 'mode' to True for 24-hour clock, or False for a 12-hour clock.
-            TODO Make this an externally accessible setting.
-    NOTE #2 The code calls 'isBST()' to determine if we are in British Summer Time.
-            You will need to alter that call if you use some other form of daylight
-            savings calculation.
+    second.
+    NOTE The code calls 'isBST()' to determine if we are in British Summer Time.
+         You will need to alter that call if you use some other form of daylight
+         savings calculation.
     """
 
-    mode = False
+    mode = prefs["mode"]
 
     while True:
         now = localtime()
@@ -358,12 +367,13 @@ def clock(timecheck):
         now_min = now[4]
         now_sec = now[5]
 
-        if is_bst(): now_hour += 1
+        if prefs["bst"] is True:
+            if is_bst(): now_hour += 1
         if now_hour > 23: now_hour -= 23
 
         is_pm = False
         if now_hour > 11: is_pm = True
-        
+
         # Calculate and set the minutes digits
         # NOTE digit three's decimal point is use to indicate AM/PM
         if now_min < 10:
@@ -393,14 +403,20 @@ def clock(timecheck):
             digit_b = hour - (digit_a * 10)
             matrix.set_number(digit_a, 0, not wout.isconnected())
             matrix.set_number(digit_b, 1, False)
-            
+
         # Set the colon and present the display
-        matrix.set_colon(now_sec % 2 == 0)
+        if prefs["colon"] is True:
+            if prefs["flash"] is True:
+                matrix.set_colon(now_sec % 2 == 0)
+            else:
+                matrix.set_colon(True)
+        else:
+            matrix.set_colon(True)
         matrix.update()
 
         # Every two hours re-sync the RTC
         # (which is poor, see http://docs.micropython.org/en/latest/esp8266/general.html#real-time-clock)
-        if now_hour % 2 == 0 and wout.isconnected() and timecheck is False: 
+        if now_hour % 2 == 0 and wout.isconnected() and timecheck is False:
             timecheck = set_rtc()
         # Reset the 'do check' flag every other hour
         if now_hour % 2 > 0: timecheck = False
@@ -408,7 +424,7 @@ def clock(timecheck):
 
 def sync_text():
     """
-    This function displays the text 'SYNC' on the display while the 
+    This function displays the text 'SYNC' on the display while the
     newly booted clock is connecting to the Internet and getting the
     current time.
     """
@@ -422,10 +438,16 @@ def sync_text():
 This is the simple runtime start point.
 Set up the display on I2C
 """
+prefs = None
 wout = None
+
+# Set default prefs
+defaultPrefs()
+
+# Initialize hardware
 i2c = I2C(scl=Pin(5), sda=Pin(4))
 matrix = HT16K33Segment(i2c)
-matrix.set_brightness(10)
+matrix.set_brightness(prefs["bright"])
 
 # Display 'sync' on the display while connecting,
 # and attempt to connect

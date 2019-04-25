@@ -1,4 +1,4 @@
-# FeatherClock 1.0.5 #
+# FeatherClock 1.0.6 #
 
 This repo contains code written for the [Adafruit Feather HUZZAH ESP8266](https://learn.adafruit.com/adafruit-feather-huzzah-esp8266) running [MicroPython](http://docs.micropython.org/en/latest/index.html).
 

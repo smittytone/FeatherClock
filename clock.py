@@ -12,8 +12,8 @@ Imports
 """
 import usocket as socket
 import ustruct as struct
+import ujson as json
 import network
-import ujson
 from micropython import const
 from machine     import I2C, Pin, RTC
 from utime       import localtime, sleep
@@ -321,7 +321,7 @@ def load_prefs():
 
     if file_data != None:
         try:
-            data = ujson.loads(file_data)
+            data = json.loads(file_data)
         except ValueError:
             print("Whoops: JSON decode error")
             return
@@ -339,6 +339,7 @@ def set_prefs(prefs_data):
     prefs["flash"] = prefs_data["flash"]
     prefs["bright"] = prefs_data["bright"]
     prefs["bst"] = prefs_data["bst"]
+    prefs["showip"] = prefs_data["showip"]
 
 
 def default_prefs():
@@ -352,6 +353,7 @@ def default_prefs():
     prefs["flash"] = True
     prefs["bright"] = 10
     prefs["bst"] = True
+    prefs["showip"] = False
 
 
 def connect():

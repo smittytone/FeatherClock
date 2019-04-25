@@ -1,4 +1,4 @@
-# FeatherClock 1.0.6 #
+# FeatherClock 1.0.7 #
 
 This repo contains code written for the [Adafruit Feather HUZZAH ESP8266](https://learn.adafruit.com/adafruit-feather-huzzah-esp8266) running [MicroPython](http://docs.micropython.org/en/latest/index.html).
 
@@ -12,6 +12,8 @@ Currently, the clock has no remote control, which the Electric Imp Platform make
 
 ### Release History ###
 
+- 1.0.7 &mdash; *25 April 2019*
+    - Add optional on-device JSON prefs (.prefs.json) loading
 - 1.0.6 &mdash; *13 April 2019*
     - Add app preferences structure
 - 1.0.5 &mdash; *10 April 2019*

@@ -1,7 +1,7 @@
 """
 Clock.py - a very simple four-digit timepiece
 
-Version:   1.0.6
+Version:   1.0.7
 Author:    smittytone
 Copyright: 2019, Tony Smith
 Licence:   MIT
@@ -13,6 +13,7 @@ Imports
 import usocket as socket
 import ustruct as struct
 import network
+import ujson
 from micropython import const
 from machine     import I2C, Pin, RTC
 from utime       import localtime, sleep
@@ -310,7 +311,40 @@ def set_rtc(timeout=10):
     return False
 
 
-def defaultPrefs():
+def load_prefs():
+    file_data = None
+    try:
+        with open(".prefs.json", "r") as file: file_data = file.read()
+    except:
+        print("Whoops: no prefs file")
+        return
+
+    if file_data != None:
+        try:
+            data = ujson.loads(file_data)
+        except ValueError:
+            print("Whoops: JSON decode error")
+            return
+        set_prefs(data)
+
+
+def set_prefs(prefs_data):
+    """
+    Set the clock's preferences to reflect the specified object's contents.
+    """
+    global prefs
+    prefs = {}
+    prefs["mode"] = prefs_data["mode"]
+    prefs["colon"] = prefs_data["colon"]
+    prefs["flash"] = prefs_data["flash"]
+    prefs["bright"] = prefs_data["bright"]
+    prefs["bst"] = prefs_data["bst"]
+
+
+def default_prefs():
+    """
+    Set the clock's default preferences.
+    """
     global prefs
     prefs = {}
     prefs["mode"] = False
@@ -442,7 +476,10 @@ prefs = None
 wout = None
 
 # Set default prefs
-defaultPrefs()
+default_prefs()
+
+# Load non-default prefs, if any
+load_prefs()
 
 # Initialize hardware
 i2c = I2C(scl=Pin(5), sda=Pin(4))

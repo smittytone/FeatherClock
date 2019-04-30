@@ -333,13 +333,16 @@ def set_prefs(prefs_data):
     Set the clock's preferences to reflect the specified object's contents.
     """
     global prefs
-    prefs = {}
     prefs["mode"] = prefs_data["mode"]
     prefs["colon"] = prefs_data["colon"]
     prefs["flash"] = prefs_data["flash"]
     prefs["bright"] = prefs_data["bright"]
-    prefs["bst"] = prefs_data["bst"]
-    prefs["showip"] = prefs_data["showip"]
+    prefs["on"] = prefs_data["on"]
+
+
+def get_prefs():
+
+
 
 
 def default_prefs():
@@ -353,7 +356,8 @@ def default_prefs():
     prefs["flash"] = True
     prefs["bright"] = 10
     prefs["bst"] = True
-    prefs["showip"] = False
+    prefs["on"] = True
+    prefs["url"] = "@AGENT"
 
 
 def connect():
@@ -369,7 +373,7 @@ def connect():
     wout = network.WLAN(network.STA_IF)
     wout.active(True)
     if not wout.isconnected():
-        wout.connect('@SSID', '@PASS')
+        wout.connect("@SSID", "@PASS")
         while not wout.isconnected():
             sleep(0.5)
             matrix.set_glyph(0x39, 3, state)
@@ -379,6 +383,7 @@ def connect():
     # Connection succeeded, so set the RTC
     matrix.set_glyph(0x39, 3, True)
     timecheck = set_rtc(30)
+    #get_prefs(30)
 
     # Clear the display and start the clock loop
     matrix.clear()

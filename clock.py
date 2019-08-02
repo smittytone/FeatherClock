@@ -15,8 +15,8 @@ import ustruct as struct
 import ujson as json
 import network
 from micropython import const
-from machine     import I2C, Pin, RTC
-from utime       import localtime, sleep
+from machine import I2C, Pin, RTC
+from utime import localtime, sleep
 
 
 """
@@ -340,11 +340,6 @@ def set_prefs(prefs_data):
     prefs["on"] = prefs_data["on"]
 
 
-def get_prefs():
-
-
-
-
 def default_prefs():
     """
     Set the clock's default preferences.
@@ -481,6 +476,19 @@ Set up the display on I2C
 """
 prefs = None
 wout = None
+
+ap = network.WLAN(network.AP_IF)
+ap.active(True)
+ap.config(essid='esp_clock')
+ap.config(authmode=network.AUTH_WPA_WPA2_PSK)
+ap.config(password='rumpelstiltskin')
+ap.active(False)
+
+addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
+s = socket.socket()
+s.bind(addr)
+s.listen(1)
+
 
 # Set default prefs
 default_prefs()

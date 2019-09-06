@@ -1,4 +1,4 @@
-# FeatherClock 1.0.7 #
+# FeatherClock 1.0.8 #
 
 This repo contains code written for the [Adafruit Feather HUZZAH ESP8266](https://learn.adafruit.com/adafruit-feather-huzzah-esp8266) running [MicroPython](http://docs.micropython.org/en/latest/index.html).
 
@@ -6,12 +6,23 @@ It is an initial attempt to replicate my [Electric Imp clock project](https://gi
 
 Currently, the clock has no remote control, which the Electric Imp Platform makes very easy to implement, but is rather less so here. Adding a web UI, served locally or remotely, is the next phase of the project.
 
+### Installation ###
+
+1. Connect your assembled Feather Clock (Feather plus LED add-on).
+2. Run `./install.sh`
+3. Press `E` to continue or `Q` to quit.
+4. Enter your WiFi SSID.
+5. Enter your WiFi password.
+6. After the code has copied, power-cycle your Feather Clock or press the RESET button.
+
 ### To Do ###
 
 - Web UI for clock settings control.
 
 ### Release History ###
 
+- 1.0.8 &mdash; *6 September 2019*
+    - Add installation script
 - 1.0.7 &mdash; *25 April 2019*
     - Add optional on-device JSON prefs (.prefs.json) loading
 - 1.0.6 &mdash; *13 April 2019*

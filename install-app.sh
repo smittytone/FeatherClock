@@ -3,13 +3,13 @@
 
 # Install the clock code with the requested WiFi credentials
 #
-# Version 1.0.1
+# Version 1.0.2
 
 # Set the Feather's device record
 dev=/dev/cu.SLAB_USBtoUART
 
 # Check that ampy is installed
-command -v ampy >/dev/null || { echo "ampy not installed (go to https://github.com/scientifichackers/ampy) -- quitting"; exit 1; }
+command -v ampy >/dev/null || { echo "ampy not installed (see https://github.com/scientifichackers/ampy) -- quitting"; exit 1; }
 
 # Make sure the Feather is connected before proceeding
 if ! [ -e "$dev" ]; then
@@ -18,7 +18,7 @@ if ! [ -e "$dev" ]; then
 fi
 
 # Ask the use what they want to do
-read -n 1 -s -p "Press [ENTER] to install a Pythomn app, or [Q] to quit" keypress
+read -n 1 -s -p "Press [ENTER] to install a µPython app on your Feather, or [Q] to quit" keypress
 echo
 
 if [[ $keypress == "q" || $keypress == "@" ]]; then
@@ -29,8 +29,8 @@ read -p "Enter your WiFi SSID: " ssid
 read -s -p "Enter your WiFi password: " pass
 
 echo "Adding WiFi credentials to code..."
-sed "s|@SSID|$ssid|; \
-     s|@PASS|$pass|" \
+sed "s|\"@SSID\"|\"$ssid\"|; \
+     s|\"@PASS\"|\"$pass\"|" \
      "$HOME/Documents/GitHub/featherclock/clock.py" > "$HOME/main.py"
 
 echo "Copying code to device..."

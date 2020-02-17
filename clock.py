@@ -360,7 +360,7 @@ def connect():
     Attempt to connect to the Internet as a station, and flash the decimal
     point at the right-side of the display while the connection is in
     progress. Upon connection, set the RTC then start the clock.
-    NOTE Replace '_AT_SSID' and '_AT_PASS' with your own WiFi credentials.
+    NOTE Replace '@SSID' and '@PASS' with your own WiFi credentials.
     """
     global wout
 

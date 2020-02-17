@@ -1,7 +1,7 @@
 """
 Clock.py - a very simple four-digit timepiece
 
-Version:   1.0.7
+Version:   1.0.9
 Author:    smittytone
 Copyright: 2019, Tony Smith
 Licence:   MIT
@@ -281,13 +281,14 @@ def is_leap_year(year):
     return False
 
 
-def get_time(timeout):
+def get_time(timeout=10):
     # https://github.com/micropython/micropython/blob/master/ports/esp8266/modules/ntptime.py
     # Modify the standard code to extend the timeout, and catch OSErrors triggered when the
     # socket operation times out
     ntp_query = bytearray(48)
     ntp_query[0] = 0x1b
     address = socket.getaddrinfo("pool.ntp.org", 123)[0][-1]
+    # Create DGRAM UDP socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.settimeout(timeout)
     try:
@@ -377,8 +378,12 @@ def connect():
 
     # Connection succeeded, so set the RTC
     matrix.set_glyph(0x39, 3, True)
+
+
+def initial_connect():
+    # Connect and get the time
+    connect()
     timecheck = set_rtc(30)
-    #get_prefs(30)
 
     # Clear the display and start the clock loop
     matrix.clear()
@@ -452,8 +457,14 @@ def clock(timecheck):
 
         # Every two hours re-sync the RTC
         # (which is poor, see http://docs.micropython.org/en/latest/esp8266/general.html#real-time-clock)
-        if now_hour % 2 == 0 and wout.isconnected() and timecheck is False:
-            timecheck = set_rtc()
+        if now_hour % 2 == 0 and timecheck is False:
+            # Connect if we're not
+            if not wout.isconnected():
+                connect()
+
+            # Get the true time
+            timecheck = set_rtc(30)
+
         # Reset the 'do check' flag every other hour
         if now_hour % 2 > 0: timecheck = False
 
@@ -477,6 +488,7 @@ Set up the display on I2C
 prefs = None
 wout = None
 
+# Configure but then close the AP WiFi
 ap = network.WLAN(network.AP_IF)
 ap.active(True)
 ap.config(essid='esp_clock')
@@ -484,11 +496,10 @@ ap.config(authmode=network.AUTH_WPA_WPA2_PSK)
 ap.config(password='rumpelstiltskin')
 ap.active(False)
 
-addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
-s = socket.socket()
-s.bind(addr)
-s.listen(1)
-
+#addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
+#s = socket.socket()
+#s.bind(addr)
+#s.listen(1)
 
 # Set default prefs
 default_prefs()
@@ -504,4 +515,4 @@ matrix.set_brightness(prefs["bright"])
 # Display 'sync' on the display while connecting,
 # and attempt to connect
 sync_text()
-connect()
+initial_connect()

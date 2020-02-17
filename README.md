@@ -10,7 +10,7 @@ Currently, the clock has no remote control, which the Electric Imp Platform make
 
 1. Connect your assembled Feather Clock (Feather plus LED add-on).
 2. Run `./install.sh`
-3. Press `E` to continue or `Q` to quit.
+3. Press `Enter` to continue or `Q` to quit.
 4. Enter your WiFi SSID.
 5. Enter your WiFi password.
 6. After the code has copied, power-cycle your Feather Clock or press the RESET button.

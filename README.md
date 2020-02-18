@@ -32,7 +32,7 @@ Currently, the clock has no remote control, which the Electric Imp Platform make
     - Add app preferences structure
 - 1.0.5 *10 April 2019*
     - Correct the months used for BST checking
-- 1.0.4 9 April 2019*
+- 1.0.4 *9 April 2019*
     - Various linting-suggested code improvements
 - 1.0.3 *8 April 2019*
     - Improve RTC updates by making NTP checks

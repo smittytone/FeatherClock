@@ -3,7 +3,7 @@
 
 # Install the clock code with the requested WiFi credentials
 #
-# Version 1.0.2
+# Version 1.0.9
 
 # Set the Feather's device record
 dev=/dev/cu.SLAB_USBtoUART
@@ -31,7 +31,7 @@ read -s -p "Enter your WiFi password: " pass
 echo "Adding WiFi credentials to code..."
 sed "s|\"@SSID\"|\"$ssid\"|; \
      s|\"@PASS\"|\"$pass\"|" \
-     "$HOME/Documents/GitHub/featherclock/clock.py" > "$HOME/main.py"
+     "$HOME/GitHub/featherclock/clock.py" > "$HOME/main.py"
 
 echo "Copying code to device..."
 ampy --port $dev put "$HOME/main.py"

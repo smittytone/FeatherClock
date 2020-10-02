@@ -6,7 +6,7 @@
 # Version 1.0.9
 
 # Set the Feather's device record
-dev=/dev/cu.SLAB_USBtoUART
+dev=$1
 
 # Check that ampy is installed
 command -v ampy >/dev/null || { echo "ampy not installed (see https://github.com/scientifichackers/ampy) -- quitting"; exit 1; }
@@ -28,7 +28,7 @@ fi
 read -p "Enter your WiFi SSID: " ssid
 read -s -p "Enter your WiFi password: " pass
 
-echo "Adding WiFi credentials to code..."
+echo -e "\nAdding WiFi credentials to code...\n"
 sed "s|\"@SSID\"|\"$ssid\"|; \
      s|\"@PASS\"|\"$pass\"|" \
      "$HOME/GitHub/featherclock/clock.py" > "$HOME/main.py"

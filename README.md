@@ -8,12 +8,25 @@ Currently, the clock has no remote control, which the Electric Imp Platform make
 
 ### Installation ###
 
+#### Pre-requisites ####
+
+1. `pip3 install adafruit-ampy`
+1. `pip3 install esptool`
+1. Running macOS Big Sur? You also need:
+    1. `nano /usr/local/bin/esptool.py`
+    1. Comment out lines 56 to 61 inclusive
+    1. Save the file
 1. Connect your assembled Feather Clock (Feather plus LED add-on).
-2. Run `./install.sh`
-3. Press `Enter` to continue or `Q` to quit.
-4. Enter your WiFi SSID.
-5. Enter your WiFi password.
-6. After the code has copied, power-cycle your Feather Clock or press the RESET button.
+1. `ls /dev/cu*`
+    1. Note the Feather’s device file path.
+1. Update MicroPython:
+    1. `esptool.py --port <FEATHER_DEVICE_PATH> erase_flash`
+    1. `esptool.py --port <FEATHER_DEVICE_PATH> --baud 460800 write_flash --flash_size=detect 0 esp8266-20200911-v1.13.bin`
+1. Run `./install.sh <FEATHER_DEVICE_PATH>`
+1. Press `Enter` to continue or `Q` to quit.
+1. Enter your WiFi SSID.
+1. Enter your WiFi password.
+1. After the code has copied, power-cycle your Feather Clock or press the RESET button.
 
 ### To Do ###
 

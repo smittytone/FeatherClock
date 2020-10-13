@@ -14,6 +14,7 @@ import usocket as socket
 import ustruct as struct
 import ujson as json
 import network
+import uselect
 from micropython import const
 from machine import I2C, Pin, RTC
 from utime import localtime, sleep
@@ -285,6 +286,8 @@ def get_time(timeout=10):
     # https://github.com/micropython/micropython/blob/master/ports/esp8266/modules/ntptime.py
     # Modify the standard code to extend the timeout, and catch OSErrors triggered when the
     # socket operation times out
+    matrix.set_glyph(0x49, 0)
+    matrix.update()
     ntp_query = bytearray(48)
     ntp_query[0] = 0x1b
     address = socket.getaddrinfo("pool.ntp.org", 123)[0][-1]
@@ -300,6 +303,7 @@ def get_time(timeout=10):
     except OSError:
         sock.close()
         return None
+
 
 
 def set_rtc(timeout=10):
@@ -365,6 +369,8 @@ def connect():
     """
     global wout
 
+    matrix.set_glyph(0x09, 0)
+    matrix.update()
     state = True
     wout = network.WLAN(network.STA_IF)
     wout.active(True)
@@ -375,9 +381,6 @@ def connect():
             matrix.set_glyph(0x39, 3, state)
             matrix.update()
             state = not state
-
-    # Connection succeeded, so set the RTC
-    matrix.set_glyph(0x39, 3, True)
 
 
 def initial_connect():
@@ -458,11 +461,7 @@ def clock(timecheck):
         # Every two hours re-sync the RTC
         # (which is poor, see http://docs.micropython.org/en/latest/esp8266/general.html#real-time-clock)
         if now_hour % 2 == 0 and timecheck is False:
-            # Connect if we're not
-            if not wout.isconnected():
-                connect()
-
-            # Get the true time
+            connect()
             timecheck = set_rtc(30)
 
         # Reset the 'do check' flag every other hour

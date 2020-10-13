@@ -8,6 +8,15 @@
 # Set the Feather's device record
 dev=$1
 
+if [[ -e device ]]; then
+    dev=$(cat device)
+fi
+
+if [[ -z $dev ]]; then
+    echo "Device path not specified as an argument or in the file \'device\'"
+    exit 1
+fi
+
 # Check that ampy is installed
 command -v ampy >/dev/null || { echo "ampy not installed (see https://github.com/scientifichackers/ampy) -- quitting"; exit 1; }
 
@@ -28,7 +37,7 @@ fi
 read -p "Enter your WiFi SSID: " ssid
 read -s -p "Enter your WiFi password: " pass
 
-echo -e "\nAdding WiFi credentials to code...\n"
+echo -e "\nAdding WiFi credentials to code..."
 sed "s|\"@SSID\"|\"$ssid\"|; \
      s|\"@PASS\"|\"$pass\"|" \
      "$HOME/GitHub/featherclock/clock.py" > "$HOME/main.py"

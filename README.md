@@ -1,4 +1,4 @@
-# FeatherClock 1.0.9 #
+# FeatherClock 1.0.10 #
 
 This repo contains code written for the [Adafruit Feather HUZZAH ESP8266](https://learn.adafruit.com/adafruit-feather-huzzah-esp8266) running [MicroPython](http://docs.micropython.org/en/latest/index.html).
 
@@ -22,7 +22,7 @@ Currently, the clock has no remote control, which the Electric Imp Platform make
 1. Update MicroPython:
     1. `esptool.py --port <FEATHER_DEVICE_PATH> erase_flash`
     1. `esptool.py --port <FEATHER_DEVICE_PATH> --baud 460800 write_flash --flash_size=detect 0 esp8266-20200911-v1.13.bin`
-1. Run `./install.sh <FEATHER_DEVICE_PATH>`
+1. Run `./install-app.sh <FEATHER_DEVICE_PATH>`
 1. Press `Enter` to continue or `Q` to quit.
 1. Enter your WiFi SSID.
 1. Enter your WiFi password.
@@ -34,13 +34,15 @@ Currently, the clock has no remote control, which the Electric Imp Platform make
 
 ### Release History ###
 
-- 1.0.9 *In development*
+- 1.0.10 *In Development*
+    - Adds Feather Huzzah 32 version
+- 1.0.9 *29 September 2020*
     - Improve RTC time checks
     - Improve installation script
 - 1.0.8 *6 September 2019*
     - Add installation script
 - 1.0.7 *25 April 2019*
-    - Add optional on-device JSON prefs (.prefs.json) loading
+    - Add optional on-device JSON prefs (`prefs.json`) loading
 - 1.0.6 *13 April 2019*
     - Add app preferences structure
 - 1.0.5 *10 April 2019*
@@ -59,4 +61,4 @@ Currently, the clock has no remote control, which the Electric Imp Platform make
 
 ### Licence ###
 
-FeatherClock is copyright 2019-20, Tony Smith. It is released under the MIT licence.
+FeatherClock is copyright 2020, Tony Smith. It is released under the MIT licence.

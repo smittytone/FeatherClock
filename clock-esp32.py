@@ -1,9 +1,9 @@
 """
 Clock.py - a very simple four-digit timepiece
 
-Version:   1.0.9
+Version:   1.0.10
 Author:    smittytone
-Copyright: 2019, Tony Smith
+Copyright: 2020, Tony Smith
 Licence:   MIT
 """
 
@@ -13,8 +13,8 @@ Imports
 import usocket as socket
 import ustruct as struct
 import ujson as json
-import network
 import uselect
+import network
 from micropython import const
 from machine import I2C, Pin, RTC
 from utime import localtime, sleep
@@ -40,7 +40,7 @@ class HT16K33Segment:
     """
 
     # The positions of the segments within the buffer
-    pos = [0, 2, 6, 8]
+    pos = (0, 2, 6, 8)
 
     # Bytearray of the key alphanumeric characters we can show:
     # 0-9, A-F, minus, degree
@@ -66,7 +66,7 @@ class HT16K33Segment:
         """
         rates = (0, 2, 1, 0.5)
         if rate not in rates: return
-        rate = rate & 0x03
+        rate &= 0x03
         self.blink_rate = rate
         self._write_cmd(_HT16K33_BLINK_CMD | _HT16K33_BLINK_DISPLAY_ON | rate << 1)
 
@@ -79,10 +79,14 @@ class HT16K33Segment:
         Args:
             brightness (int): The chosen flash rate. Default: 15 (100%).
         """
-        if brightness < 0 or brightness > 15: brightness = 15
-        brightness = brightness & 0x0F
+        if not 0 <= brightness <= 15: brightness = 15
         self.brightness = brightness
         self._write_cmd(_HT16K33_CMD_BRIGHTNESS | brightness)
+
+    def get_glyph(self, digit):
+        if 0 <= digit < 4:
+            return self.buffer[self.pos[digit]]
+        return None
 
     def set_glyph(self, glyph, digit=0, has_dot=False):
         """
@@ -234,12 +238,12 @@ def bst_check(now=None):
     if now[1] == 3:
         # BST starts on the last Sunday of March
         for index in range(31, 24, -1):
-            if day_of_week(index, 3, now[0]) == 0 and now[3] >= index: return True
+            if day_of_week(index, 3, now[0]) == 0 and now[2] >= index: return True
 
     if now[1] == 10:
         # BST ends on the last Sunday of October
         for index in range(31, 24, -1):
-            if day_of_week(index, 10, now[0]) == 0 and now[3] < index: return True
+            if day_of_week(index, 10, now[0]) == 0 and now[2] < index: return True
 
     return False
 
@@ -286,24 +290,28 @@ def get_time(timeout=10):
     # https://github.com/micropython/micropython/blob/master/ports/esp8266/modules/ntptime.py
     # Modify the standard code to extend the timeout, and catch OSErrors triggered when the
     # socket operation times out
-    matrix.set_glyph(0x49, 0)
-    matrix.update()
     ntp_query = bytearray(48)
     ntp_query[0] = 0x1b
     address = socket.getaddrinfo("pool.ntp.org", 123)[0][-1]
     # Create DGRAM UDP socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.settimeout(timeout)
+    return_value = None
+    err = 0
     try:
+        err = 1
         _ = sock.sendto(ntp_query, address)
+        err = 2
         msg = sock.recv(48)
-        sock.close()
+        err = 3
         val = struct.unpack("!I", msg[40:44])[0]
-        return val - 3155673600
-    except OSError:
-        sock.close()
-        return None
-
+        return_value = val - 3155673600
+    except:
+        if err is not 0:
+            show_error(err)
+        return_value = None
+    sock.close()
+    return return_value
 
 
 def set_rtc(timeout=10):
@@ -319,7 +327,7 @@ def set_rtc(timeout=10):
 def load_prefs():
     file_data = None
     try:
-        with open(".prefs.json", "r") as file: file_data = file.read()
+        with open("prefs.json", "r") as file: file_data = file.read()
     except:
         print("Whoops: no prefs file")
         return
@@ -351,7 +359,7 @@ def default_prefs():
     """
     global prefs
     prefs = {}
-    prefs["mode"] = False
+    prefs["mode"] = True
     prefs["colon"] = True
     prefs["flash"] = True
     prefs["bright"] = 10
@@ -366,21 +374,28 @@ def connect():
     point at the right-side of the display while the connection is in
     progress. Upon connection, set the RTC then start the clock.
     NOTE Replace '@SSID' and '@PASS' with your own WiFi credentials.
+         The 'install-app.sh' script does this for you
     """
     global wout
 
-    matrix.set_glyph(0x09, 0)
-    matrix.update()
+    err = 0
+    con_count = 0
     state = True
-    wout = network.WLAN(network.STA_IF)
-    wout.active(True)
+    if wout is None: wout = network.WLAN(network.STA_IF)
+    if not wout.active(): wout.active(True)
+    glyph = matrix.get_glyph(3)
+    if glyph is None: glyph = 0x3C
     if not wout.isconnected():
+        # Attempt to connect
         wout.connect("@SSID", "@PASS")
         while not wout.isconnected():
+            # Flash char 4's decimal point during connection
             sleep(0.5)
-            matrix.set_glyph(0x39, 3, state)
+            matrix.set_glyph(glyph, 3, state)
             matrix.update()
             state = not state
+            con_count += 1
+            if con_count > 40: break
 
 
 def initial_connect():
@@ -393,7 +408,7 @@ def initial_connect():
     clock(timecheck)
 
 
-def clock(timecheck):
+def clock(timecheck=False):
     """
     The primary clock routine: in infinite loop that displays the time
     from the UTC every pass and flips the display's central colon every
@@ -427,7 +442,7 @@ def clock(timecheck):
             digit_a = int(now_min / 10)
             digit_b = now_min - (digit_a * 10)
             matrix.set_number(digit_a, 2, False)
-            matrix.set_number(digit_b, 3, is_pm)
+            matrix.set_number(digit_b, 3, is_pm if mode is False else False)
 
         # Calculate and set the hours digits
         hour = now_hour
@@ -461,11 +476,22 @@ def clock(timecheck):
         # Every two hours re-sync the RTC
         # (which is poor, see http://docs.micropython.org/en/latest/esp8266/general.html#real-time-clock)
         if now_hour % 2 == 0 and timecheck is False:
-            connect()
-            timecheck = set_rtc(30)
+            if not wout.isconnected(): connect()
+            if wout.isconnected(): timecheck = set_rtc(30)
 
         # Reset the 'do check' flag every other hour
         if now_hour % 2 > 0: timecheck = False
+
+
+def show_error(error_code):
+    """
+    Present a simple error message on the LED.
+    """
+    matrix.clear()
+    err_text = b'\x39\x50\x50'
+    for i in range(0, 3): matrix.set_glyph(err_text[i], i)
+    matrix.set_number(error_code, 3)
+    matrix.update()
 
 
 def sync_text():
@@ -488,12 +514,12 @@ prefs = None
 wout = None
 
 # Configure but then close the AP WiFi
-ap = network.WLAN(network.AP_IF)
-ap.active(True)
-ap.config(essid='esp_clock')
-ap.config(authmode=network.AUTH_WPA_WPA2_PSK)
-ap.config(password='rumpelstiltskin')
-ap.active(False)
+#ap = network.WLAN(network.AP_IF)
+#ap.active(True)
+#ap.config(essid='esp8266-clock')
+#ap.config(authmode=network.AUTH_WPA_WPA2_PSK)
+#ap.config(password='rumpelstiltskin')
+#ap.active(False)
 
 #addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
 #s = socket.socket()
@@ -507,7 +533,7 @@ default_prefs()
 load_prefs()
 
 # Initialize hardware
-i2c = I2C(scl=Pin(5), sda=Pin(4))
+i2c = I2C(scl=Pin(22), sda=Pin(23))
 matrix = HT16K33Segment(i2c)
 matrix.set_brightness(prefs["bright"])
 

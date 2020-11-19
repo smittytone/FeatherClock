@@ -327,7 +327,8 @@ def set_rtc(timeout=10):
 def load_prefs():
     file_data = None
     try:
-        with open("prefs.json", "r") as file: file_data = file.read()
+        with open("prefs.json", "r") as file:
+            file_data = file.read()
     except:
         print("Whoops: no prefs file")
         return
@@ -335,10 +336,9 @@ def load_prefs():
     if file_data != None:
         try:
             data = json.loads(file_data)
+            set_prefs(data)
         except ValueError:
             print("Whoops: JSON decode error")
-            return
-        set_prefs(data)
 
 
 def set_prefs(prefs_data):
@@ -464,13 +464,9 @@ def clock(timecheck=False):
             matrix.set_number(digit_b, 1, False)
 
         # Set the colon and present the display
-        if prefs["colon"] is True:
-            if prefs["flash"] is True:
-                matrix.set_colon(now_sec % 2 == 0)
-            else:
-                matrix.set_colon(True)
-        else:
-            matrix.set_colon(True)
+        matrix.set_colon(prefs["colon"])
+        if prefs["colon"] is True and prefs["flash"] is True:
+            matrix.set_colon(now_sec % 2 == 0)
         matrix.update()
 
         # Every two hours re-sync the RTC
@@ -512,19 +508,6 @@ Set up the display on I2C
 """
 prefs = None
 wout = None
-
-# Configure but then close the AP WiFi
-#ap = network.WLAN(network.AP_IF)
-#ap.active(True)
-#ap.config(essid='esp8266-clock')
-#ap.config(authmode=network.AUTH_WPA_WPA2_PSK)
-#ap.config(password='rumpelstiltskin')
-#ap.active(False)
-
-#addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
-#s = socket.socket()
-#s.bind(addr)
-#s.listen(1)
 
 # Set default prefs
 default_prefs()

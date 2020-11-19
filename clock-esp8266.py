@@ -327,7 +327,8 @@ def set_rtc(timeout=10):
 def load_prefs():
     file_data = None
     try:
-        with open("prefs.json", "r") as file: file_data = file.read()
+        with open("prefs.json", "r") as file:
+            file_data = file.read()
     except:
         print("Whoops: no prefs file")
         return
@@ -464,13 +465,9 @@ def clock(timecheck=False):
             matrix.set_number(digit_b, 1, False)
 
         # Set the colon and present the display
-        if prefs["colon"] is True:
-            if prefs["flash"] is True:
-                matrix.set_colon(now_sec % 2 == 0)
-            else:
-                matrix.set_colon(True)
-        else:
-            matrix.set_colon(True)
+        matrix.set_colon(prefs["colon"])
+        if prefs["colon"] is True and prefs["flash"] is True:
+            matrix.set_colon(now_sec % 2 == 0)
         matrix.update()
 
         # Every two hours re-sync the RTC

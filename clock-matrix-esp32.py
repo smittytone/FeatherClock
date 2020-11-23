@@ -165,15 +165,15 @@ class HT16K33MatrixFeatherWing(HT16K33):
 
     CHARSET = [
         b"\x7C\x82\x7C",    # 0
-        b"\x40\xFE",        # 1
-        b"\x9E\xE2",        # 2
-        b"\x92\xFE",        # 3
+        b"\x42\xFE\x02",    # 1
+        b"\x8E\x92\xE2",    # 2
+        b"\x44\x92\x6C",    # 3
         b"\xF0\x08\x3E",    # 4
-        b"\xE2\x9E",        # 5
-        b"\xFE\x12\x0C",    # 6
-        b"\x9E\xFE",        # 7
+        b"\xE2\x92\x8E",    # 5
+        b"\x7C\x92\x0C",    # 6
+        b"\x8E\x90\xE0",    # 7
         b"\x6C\x92\x6C",    # 8
-        b"\x60\x90\xFE"     # 9
+        b"\x60\x92\x7C"     # 9
     ]
 
     # ********** PRIVATE PROPERTIES **********
@@ -521,8 +521,8 @@ def clock(timecheck=False):
         now_min = now[4]
         now_sec = now[5]
 
-        if prefs["bst"] is True:
-            if is_bst(): now_hour += 1
+        if prefs["bst"] is True and is_bst() is True:
+            now_hour += 1
         if now_hour > 23: now_hour -= 23
 
         is_pm = 0
@@ -535,34 +535,34 @@ def clock(timecheck=False):
 
         if hour < 10:
             if mode is False:
-                idx = set_digit(hour, idx)
+                set_digit(hour, 4)
             else:
-                idx = set_digit(0, idx)
-                idx = set_digit(hour, idx)
+                set_digit(0, 0)
+                set_digit(hour, 4)
         else:
             digit_a = int(hour / 10)
             digit_b = hour - (digit_a * 10)
-            idx = set_digit(digit_a, idx)
-            idx = set_digit(digit_b, idx)
+            set_digit(digit_a, 0)
+            set_digit(digit_b, 4)
 
         if prefs["colon"] is True:
             glyph = b'\x28'
             if prefs["flash"] is True and now_sec % 2 != 0:
                 glyph = b'\x00'
-            matrix.set_icon(glyph, idx)
+            matrix.set_icon(glyph, 7)
             idx += 2
         else:
             idx += 1
 
         # Calculate and set the minutes digits
         if now_min < 10:
-            idx = set_digit(0, idx)
-            idx = set_digit(now_min, idx)
+            set_digit(0, 8)
+            set_digit(now_min, 12)
         else:
             digit_a = int(now_min / 10)
             digit_b = now_min - (digit_a * 10)
-            idx = set_digit(digit_a, idx)
-            idx = set_digit(digit_b, idx)
+            set_digit(digit_a, 8)
+            set_digit(digit_b, 12)
 
         # Set disconnected marker
         ink = 0 if wout.isconnected() else 1

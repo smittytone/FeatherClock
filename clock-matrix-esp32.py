@@ -38,7 +38,7 @@ class HT16K33:
     A simple, generic driver for the I2C-connected Holtek HT16K33 controller chip.
     This release supports MicroPython and CircuitPython
 
-    Version:    3.0.0
+    Version:    3.0.2
     Bus:        I2C
     Author:     Tony Smith (@smittytone)
     License:    MIT
@@ -173,7 +173,8 @@ class HT16K33MatrixFeatherWing(HT16K33):
         b"\x7C\x92\x0C",    # 6
         b"\x8E\x90\xE0",    # 7
         b"\x6C\x92\x6C",    # 8
-        b"\x60\x92\x7C"     # 9
+        b"\x60\x92\x7C",    # 9
+        b"\x00\x00\x00"     # space
     ]
 
     # ********** PRIVATE PROPERTIES **********
@@ -534,11 +535,10 @@ def clock(timecheck=False):
             if hour == 0: hour = 12
 
         if hour < 10:
-            if mode is False:
-                set_digit(hour, 4)
-            else:
-                set_digit(0, 0)
-                set_digit(hour, 4)
+            first_digit = 0
+            if mode is False: first_digit = 10
+            set_digit(first_digit, 0)
+            set_digit(hour, 4)
         else:
             digit_a = int(hour / 10)
             digit_b = hour - (digit_a * 10)

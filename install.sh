@@ -3,7 +3,7 @@
 
 # Install the clock code with the requested WiFi credentials
 #
-# Version 1.0.10
+# Version 1.1.0
 
 # Set the Feather's device record
 dev=""
@@ -15,29 +15,20 @@ fi
 dev=$1
 
 if [[ -z "$dev" ]]; then
-    echo "Device path not specified as an argument or in the file \'device\'"
+    echo "Error -- Device path not specified as an argument or in the file \'device\'"
     exit 1
 fi
 
 # Check that ampy is installed
-command -v ampy >/dev/null || { echo "ampy not installed (see https://github.com/scientifichackers/ampy) -- quitting"; exit 1; }
+command -v ampy >/dev/null || { echo "Error -- ampy not installed (see https://github.com/scientifichackers/ampy)"; exit 1; }
 
 # Make sure the Feather is connected befo re proceeding
 if [[ ! -e "$dev" ]]; then
-    echo "Feather is not connected to USB -- quitting"
+    echo "Error -- Feather is not connected to USB"
     exit 1
 fi
 
-# Ask the use what they want to do
-read -n 1 -s -p "Press [ENTER] to install a µPython app on your Feather, or [Q] to quit " keypress
-echo
-
-if [[ $keypress == "q" || $keypress == "@" ]]; then
-    exit 0
-fi
-
 # FROM 1.0.10 -- Allow user to choose device type
-# Ask the use what they want to do
 read -n 1 -s -p "Press [3] to install on an ESP32, or any other key for ESP8266 " keypress
 echo
 
@@ -46,15 +37,25 @@ if [[ $keypress == "3" ]]; then
     chip="-esp32"
 fi
 
+# FROM 1.1.0 -- Allow user to choose display type
+read -n 1 -s -p "Press [M] to use a matrix LED, or any other key for a segment LED" keypress
+echo
+
+type=""
+keypress=${keypress^^}
+if [[ $keypress == "M" ]]; then
+    type="-matrix"
+fi
+
 read -p "Enter your WiFi SSID: " ssid
 read -s -p "Enter your WiFi password: " pass
 
 echo -e "\nAdding WiFi credentials to code..."
 sed "s|\"@SSID\"|\"$ssid\"|; \
      s|\"@PASS\"|\"$pass\"|" \
-     "$HOME/GitHub/featherclock/clock$chip.py" > "$HOME/main.py"
+     "$HOME/GitHub/featherclock/clock${type}${chip}.py" > "$HOME/main.py"
 
-echo "Copying code to device..."
+echo "Copying \"clock${type}${chip}.py\" to device \"$dev\"..."
 ampy --port $dev put "$HOME/main.py"
 
 echo "Code copied. Press RESET on the Feather, or power cycle, to run the code."

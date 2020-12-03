@@ -1,7 +1,7 @@
 """
 Clock.py - a very simple four-digit timepiece
 
-Version:   1.0.10
+Version:   1.1.0
 Author:    smittytone
 Copyright: 2020, Tony Smith
 Licence:   MIT
@@ -33,42 +33,44 @@ _HT16K33_MINUS_CHAR = const(0x10)
 _HT16K33_DEGREE_CHAR = const(0x11)
 
 
-class HT16K33Segment:
+class HT16K33:
     """
-    A simple driver for the I2C-connected Holtek HT16K33 controller chip and a four-digit,
-    seven-segment LED connected to it. For example: https://learn.adafruit.com/adafruit-7-segment-led-featherwings/overview
+    A simple, generic driver for the I2C-connected Holtek HT16K33 controller chip.
+    This release supports MicroPython and CircuitPython
+
+    Version:    3.0.2
+    Bus:        I2C
+    Author:     Tony Smith (@smittytone)
+    License:    MIT
+    Copyright:  2020
     """
 
-    # The positions of the segments within the buffer
-    pos = (0, 2, 6, 8)
+    # *********** CONSTANTS **********
 
-    # Bytearray of the key alphanumeric characters we can show:
-    # 0-9, A-F, minus, degree
-    chars = b'\x3F\x06\x5B\x4F\x66\x6D\x7D\x07\x7F\x6F\x5F\x7C\x58\x5E\x7B\x71\x40\x63'
+    HT16K33_GENERIC_DISPLAY_ON = 0x81
+    HT16K33_GENERIC_DISPLAY_OFF = 0x80
+    HT16K33_GENERIC_SYSTEM_ON = 0x21
+    HT16K33_GENERIC_SYSTEM_OFF = 0x20
+    HT16K33_GENERIC_DISPLAY_ADDRESS = 0x00
+    HT16K33_GENERIC_CMD_BRIGHTNESS = 0xE0
+    HT16K33_GENERIC_CMD_BLINK = 0x81
 
+    # *********** PRIVATE PROPERTIES **********
 
-    def __init__(self, i2c, address=0x70):
+    i2c = None
+    address = 0
+    brightness = 15
+    flash_rate = 0
+
+    # *********** CONSTRUCTOR **********
+
+    def __init__(self, i2c, i2c_address):
+        assert 0x00 <= i2c_address < 0x80, "ERROR - Invalid I2C address in HT16K33()"
         self.i2c = i2c
-        self.address = address
-        self.buffer = bytearray(16)
-        self._write_cmd(_HT16K33_SYSTEM_ON)
-        self.set_blink_rate()
-        self.set_brightness(15)
+        self.address = i2c_address
+        self.power_on()
 
-    def set_blink_rate(self, rate=0):
-        """
-        Set the display's flash rate.
-
-        Only four values (in Hz) are permitted: 0, 2, 1, and 0,5.
-
-        Args:
-            rate (int): The chosen flash rate. Default: 0Hz.
-        """
-        rates = (0, 2, 1, 0.5)
-        if rate not in rates: return
-        rate &= 0x03
-        self.blink_rate = rate
-        self._write_cmd(_HT16K33_BLINK_CMD | _HT16K33_BLINK_DISPLAY_ON | rate << 1)
+    # *********** PUBLIC METHODS **********
 
     def set_brightness(self, brightness=15):
         """
@@ -79,14 +81,110 @@ class HT16K33Segment:
         Args:
             brightness (int): The chosen flash rate. Default: 15 (100%).
         """
-        if not 0 <= brightness <= 15: brightness = 15
+        if brightness < 0 or brightness > 15: brightness = 15
         self.brightness = brightness
-        self._write_cmd(_HT16K33_CMD_BRIGHTNESS | brightness)
+        self._write_cmd(self.HT16K33_GENERIC_CMD_BRIGHTNESS | brightness)
 
-    def get_glyph(self, digit):
-        if 0 <= digit < 4:
-            return self.buffer[self.pos[digit]]
-        return None
+    def draw(self):
+        """
+        Writes the current display buffer to the display itself.
+
+        Call this method after updating the buffer to update
+        the LED itself.
+        """
+        self._render()
+
+    def clear(self):
+        """
+        Clear the buffer.
+
+        Returns:
+            The instance (self)
+        """
+        for i in range(0, len(self.buffer)): self.buffer[i] = 0x00
+        return self
+
+    def power_on(self):
+        """
+        Power on the controller and display.
+        """
+        self._write_cmd(self.HT16K33_GENERIC_SYSTEM_ON)
+        self._write_cmd(self.HT16K33_GENERIC_DISPLAY_ON)
+
+    def power_off(self):
+        """
+        Power on the controller and display.
+        """
+        self._write_cmd(self.HT16K33_GENERIC_DISPLAY_OFF)
+        self._write_cmd(self.HT16K33_GENERIC_SYSTEM_OFF)
+
+    # ********** PRIVATE METHODS **********
+
+    def _render(self):
+        """
+        Write the display buffer out to I2C
+        """
+        buffer = bytearray(len(self.buffer) + 1)
+        buffer[1:] = self.buffer
+        buffer[0] = 0x00
+        self.i2c.writeto(self.address, bytes(buffer))
+
+    def _write_cmd(self, byte):
+        """
+        Writes a single command to the HT16K33. A private method.
+        """
+        self.i2c.writeto(self.address, bytes([byte]))
+
+
+class HT16K33Segment(HT16K33):
+    """
+    Micro/Circuit Python class for the Adafruit 0.56-in 4-digit,
+    7-segment LED matrix backpack and equivalent Featherwing.
+
+    Version:    3.0.2
+    Bus:        I2C
+    Author:     Tony Smith (@smittytone)
+    License:    MIT
+    Copyright:  2020
+    """
+
+    # *********** CONSTANTS **********
+
+    HT16K33_SEGMENT_COLON_ROW = 0x04
+    HT16K33_SEGMENT_MINUS_CHAR = 0x10
+    HT16K33_SEGMENT_DEGREE_CHAR = 0x11
+    HT16K33_SEGMENT_SPACE_CHAR = 0x00
+
+    # The positions of the segments within the buffer
+    POS = (0, 2, 6, 8)
+
+    # Bytearray of the key alphanumeric characters we can show:
+    # 0-9, A-F, minus, degree
+    CHARSET = b'\x3F\x06\x5B\x4F\x66\x6D\x7D\x07\x7F\x6F\x5F\x7C\x58\x5E\x7B\x71\x40\x63'
+
+    # *********** CONSTRUCTOR **********
+
+    def __init__(self, i2c, i2c_address=0x70):
+        self.buffer = bytearray(16)
+        super(HT16K33Segment, self).__init__(i2c, i2c_address)
+
+    # *********** PUBLIC METHODS **********
+
+    def set_colon(self, is_set=True):
+        """
+        Set or unset the display's central colon symbol.
+
+        This method updates the display buffer, but does not send the buffer to the display itself.
+        Call 'draw()' to render the buffer on the display.
+
+        Args:
+            isSet (bool): Whether the colon is lit (True) or not (False). Default: True.
+
+        Returns:
+            The instance (self)
+        """
+        self.buffer[self.HT16K33_SEGMENT_COLON_ROW] = 0x02 if is_set is True else 0x00
+        return self
 
     def set_glyph(self, glyph, digit=0, has_dot=False):
         """
@@ -106,104 +204,77 @@ class HT16K33Segment:
                 3
 
         This method updates the display buffer, but does not send the buffer to the display itself.
-        Call 'update()' to render the buffer on the display.
+        Call 'draw()' to render the buffer on the display.
 
         Args:
             glyph (int):   The glyph pattern.
             digit (int):   The digit to show the glyph. Default: 0 (leftmost digit).
             has_dot (bool): Whether the decimal point to the right of the digit should be lit. Default: False.
+
+        Returns:
+            The instance (self)
         """
-        if not 0 <= digit <= 3: return
-        self.buffer[self.pos[digit]] = glyph
-        if has_dot is True: self.buffer[self.pos[digit]] |= 0b10000000
+        assert 0 <= digit < 4, "ERROR - Invalid digit (0-3) set in set_glyph()"
+        assert 0 <= glyph < 0xFF, "ERROR - Invalid glyph (0x00-0xFF) set in set_glyph()"
+        self.buffer[self.POS[digit]] = glyph
+        if has_dot is True: self.buffer[self.POS[digit]] |= 0x80
+        return self
 
     def set_number(self, number, digit=0, has_dot=False):
         """
         Present single decimal value (0-9) at the specified digit.
 
         This method updates the display buffer, but does not send the buffer to the display itself.
-        Call 'update()' to render the buffer on the display.
+        Call 'draw()' to render the buffer on the display.
 
         Args:
             number (int):  The number to show.
             digit (int):   The digit to show the number. Default: 0 (leftmost digit).
             has_dot (bool): Whether the decimal point to the right of the digit should be lit. Default: False.
-        """
-        self.set_char(str(number), digit, has_dot)
 
-    def set_char(self, char, digit=0, has_dot=False):
+        Returns:
+            The instance (self)
+        """
+        assert 0 <= digit < 4, "ERROR - Invalid digit (0-3) set in set_number()"
+        assert 0 <= number < 10, "ERROR - Invalid value (0-9) set in set_number()"
+        return self.set_character(str(number), digit, has_dot)
+
+    def set_character(self, char, digit=0, has_dot=False):
         """
         Present single alphanumeric character at the specified digit.
 
         Only characters from the class' character set are available:
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, a, b, c, d ,e, f, -, degree symbol.
-        Other characters can be defined and presented using 'setGlyp()'.
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, a, b, c, d ,e, f, -.
+        Other characters can be defined and presented using 'set_glyph()'.
 
         This method updates the display buffer, but does not send the buffer to the display itself.
-        Call 'update()' to render the buffer on the display.
+        Call 'draw()' to render the buffer on the display.
 
         Args:
-            char (string): The character to show.
-            digit (int):   The digit to show the number. Default: 0 (leftmost digit).
+            char (string):  The character to show.
+            digit (int):    The digit to show the number. Default: 0 (leftmost digit).
             has_dot (bool): Whether the decimal point to the right of the digit should be lit. Default: False.
+
+        Returns:
+            The instance (self)
         """
-        if not 0 <= digit <= 3: return
+        assert 0 <= digit < 4, "ERROR - Invalid digit set in set_character()"
         char = char.lower()
-        if char in 'abcdef':
-            char_val = ord(char) - 87
+        char_val = 0xFF
+        if char == "deg":
+            char_val = HT16K33_SEGMENT_DEGREE_CHAR
         elif char == '-':
-            char_val = _HT16K33_MINUS_CHAR
+            char_val = self.HT16K33_SEGMENT_MINUS_CHAR
+        elif char == ' ':
+            char_val = self.HT16K33_SEGMENT_SPACE_CHAR
+        elif char in 'abcdef':
+            char_val = ord(char) - 87
         elif char in '0123456789':
             char_val = ord(char) - 48
-        elif char == ' ':
-            char_val = 0x00
-        else:
-            return
-
-        self.buffer[self.pos[digit]] = self.chars[char_val]
-        if has_dot is True: self.buffer[self.pos[digit]] |= 0b10000000
-
-    def set_colon(self, is_set=True):
-        """
-        Set or unset the display's central colon symbol.
-
-        This method updates the display buffer, but does not send the buffer to the display itself.
-        Call 'update()' to render the buffer on the display.
-
-        Args:
-            isSet (bool): Whether the colon is lit (True) or not (False). Default: True.
-        """
-        self.buffer[_HT16K33_COLON_ROW] = 0x02 if is_set is True else 0x00
-
-    def clear(self):
-        """
-        Clears the display.
-
-        This method clears the display buffer, but does not send the buffer to the display itself.
-        Call 'update()' to render the buffer on the display.
-        """
-        buff = self.buffer
-        for index in range(16): buff[index] = 0x00
-
-    def update(self):
-        """
-        Writes the current display buffer to the display itself.
-
-        Call this method after clearing the buffer or writing characters to the buffer to update
-        the LED.
-        """
-        self.i2c.writeto_mem(self.address, 0x00, self.buffer)
-
-    def _write_cmd(self, byte):
-        """
-        Writes a single command to the HT16K33. A private method.
-
-        Args:
-            byte (int): The command value to send.
-        """
-        temp = bytearray(1)
-        temp[0] = byte
-        self.i2c.writeto(self.address, temp)
+        assert char_val != 0xFF, "ERROR - Invalid char string set in set_character()"
+        self.buffer[self.POS[digit]] = self.CHARSET[char_val]
+        if has_dot is True: self.buffer[self.POS[digit]] |= 0x80
+        return self
 
 
 def is_bst(now=None):
@@ -336,10 +407,9 @@ def load_prefs():
     if file_data != None:
         try:
             data = json.loads(file_data)
+            set_prefs(data)
         except ValueError:
             print("Whoops: JSON decode error")
-            return
-        set_prefs(data)
 
 
 def set_prefs(prefs_data):
@@ -382,18 +452,16 @@ def connect():
     err = 0
     con_count = 0
     state = True
+    glyph = 0x39
     if wout is None: wout = network.WLAN(network.STA_IF)
     if not wout.active(): wout.active(True)
-    glyph = matrix.get_glyph(3)
-    if glyph is None: glyph = 0x3C
     if not wout.isconnected():
         # Attempt to connect
         wout.connect("@SSID", "@PASS")
         while not wout.isconnected():
             # Flash char 4's decimal point during connection
             sleep(0.5)
-            matrix.set_glyph(glyph, 3, state)
-            matrix.update()
+            matrix.set_glyph(glyph, 3, state).draw()
             state = not state
             con_count += 1
             if con_count > 40: break
@@ -407,6 +475,15 @@ def initial_connect():
     # Clear the display and start the clock loop
     matrix.clear()
     clock(timecheck)
+
+
+def bcd(bin_value):
+    for i in range(0, 8):
+        bin_value = bin_value << 1
+        if i == 7: break
+        if (bin_value & 0xF00) > 0x4FF: bin_value += 0x300
+        if (bin_value & 0xF000) > 0x4FFF: bin_value += 0x3000
+    return (bin_value >> 8) & 0xFF
 
 
 def clock(timecheck=False):
@@ -427,23 +504,12 @@ def clock(timecheck=False):
         now_min = now[4]
         now_sec = now[5]
 
-        if prefs["bst"] is True:
-            if is_bst(): now_hour += 1
+        if prefs["bst"] is True and is_bst() is true:
+            now_hour += 1
         if now_hour > 23: now_hour -= 23
 
         is_pm = False
         if now_hour > 11: is_pm = True
-
-        # Calculate and set the minutes digits
-        # NOTE digit three's decimal point is use to indicate AM/PM
-        if now_min < 10:
-            matrix.set_number(0, 2, False)
-            matrix.set_number(now_min, 3, is_pm)
-        else:
-            digit_a = int(now_min / 10)
-            digit_b = now_min - (digit_a * 10)
-            matrix.set_number(digit_a, 2, False)
-            matrix.set_number(digit_b, 3, is_pm if mode is False else False)
 
         # Calculate and set the hours digits
         hour = now_hour
@@ -451,24 +517,28 @@ def clock(timecheck=False):
             if is_pm is True: hour -= 12
             if hour == 0: hour = 12
 
-        # NOTE digit zero's decimal point is use to indicate disconnection
-        if hour < 10:
-            matrix.set_number(hour, 1, False)
-            if mode is False:
-                matrix.set_glyph(0, 0, not wout.isconnected())
-            else:
-                matrix.set_char('0', 0, not wout.isconnected())
+        # Display the hour
+        # The decimal point by the first digit is used to indicate connection status
+        # (lit if the clock is disconnected)
+        decimal = bcd(hour)
+        if mode is False and hour < 10:
+            matrix.set_character(" ", 0, not wout.isconnected())
         else:
-            digit_a = int(hour / 10)
-            digit_b = hour - (digit_a * 10)
-            matrix.set_number(digit_a, 0, not wout.isconnected())
-            matrix.set_number(digit_b, 1, False)
+            matrix.set_number(decimal >> 4, 0, not wout.isconnected())
+        matrix.set_number(decimal & 0x0F, 1, False)
+
+        # Display the minute
+        # The decimal point by the last digit is used to indicate AM/PM,
+        # but only for the 12-hour clock mode (mode == False)
+        decimal = bcd(now_min)
+        matrix.set_number(decimal >> 4, 2, False)
+        matrix.set_number(decimal & 0x0F, 3, is_pm if mode is False else False)
 
         # Set the colon and present the display
         matrix.set_colon(prefs["colon"])
         if prefs["colon"] is True and prefs["flash"] is True:
             matrix.set_colon(now_sec % 2 == 0)
-        matrix.update()
+        matrix.draw()
 
         # Every two hours re-sync the RTC
         # (which is poor, see http://docs.micropython.org/en/latest/esp8266/general.html#real-time-clock)
@@ -488,7 +558,7 @@ def show_error(error_code):
     err_text = b'\x39\x50\x50'
     for i in range(0, 3): matrix.set_glyph(err_text[i], i)
     matrix.set_number(error_code, 3)
-    matrix.update()
+    matrix.draw()
 
 
 def sync_text():
@@ -500,7 +570,7 @@ def sync_text():
     matrix.clear()
     sync = b'\x6D\x6E\x37\x39'
     for i in range(0, 4): matrix.set_glyph(sync[i], i)
-    matrix.update()
+    matrix.draw()
 
 
 """
@@ -509,19 +579,6 @@ Set up the display on I2C
 """
 prefs = None
 wout = None
-
-# Configure but then close the AP WiFi
-ap = network.WLAN(network.AP_IF)
-ap.active(True)
-ap.config(essid='esp8266-clock')
-ap.config(authmode=network.AUTH_WPA_WPA2_PSK)
-ap.config(password='rumpelstiltskin')
-ap.active(False)
-
-#addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
-#s = socket.socket()
-#s.bind(addr)
-#s.listen(1)
 
 # Set default prefs
 default_prefs()

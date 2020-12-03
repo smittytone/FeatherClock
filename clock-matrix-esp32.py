@@ -166,10 +166,10 @@ class HT16K33MatrixFeatherWing(HT16K33):
     CHARSET = [
         b"\x7C\x82\x7C",    # 0
         b"\x42\xFE\x02",    # 1
-        b"\x8E\x92\xE2",    # 2
+        b"\x4E\x92\x62",    # 2
         b"\x44\x92\x6C",    # 3
         b"\xF0\x08\x3E",    # 4
-        b"\xE2\x92\x8E",    # 5
+        b"\x62\x92\x8E",    # 5
         b"\x7C\x92\x0C",    # 6
         b"\x8E\x90\xE0",    # 7
         b"\x6C\x92\x6C",    # 8
@@ -503,6 +503,15 @@ def initial_connect():
     clock(timecheck)
 
 
+def bcd(bin_value):
+    for i in range(0, 8):
+        bin_value = bin_value << 1
+        if i == 7: break
+        if (bin_value & 0xF00) > 0x4FF: bin_value += 0x300
+        if (bin_value & 0xF000) > 0x4FFF: bin_value += 0x3000
+    return (bin_value >> 8) & 0xFF
+
+
 def clock(timecheck=False):
     """
     The primary clock routine: in infinite loop that displays the time
@@ -516,7 +525,6 @@ def clock(timecheck=False):
     mode = prefs["mode"]
 
     while True:
-        idx = 0
         now = localtime()
         now_hour = now[3]
         now_min = now[4]
@@ -532,39 +540,22 @@ def clock(timecheck=False):
         # Calculate and set the hours digits
         hour = now_hour
         if mode is False:
+            if is_pm == 1: hour -= 12
             if hour == 0: hour = 12
 
-        if hour < 10:
-            first_digit = 0
-            if mode is False: first_digit = 10
-            set_digit(first_digit, 0)
-            set_digit(hour, 4)
-        else:
-            digit_a = int(hour / 10)
-            digit_b = hour - (digit_a * 10)
-            set_digit(digit_a, 0)
-            set_digit(digit_b, 4)
+        # Display the hour
+        decimal = bcd(hour)
+        first_digit = decimal >> 4
+        if mode is False and hour < 10: first_digit = 10
+        set_digit(first_digit, 0)
+        set_digit(decimal & 0x0F, 4)
 
-        if prefs["colon"] is True:
-            glyph = b'\x28'
-            if prefs["flash"] is True and now_sec % 2 != 0:
-                glyph = b'\x00'
-            matrix.set_icon(glyph, 7)
-            idx += 2
-        else:
-            idx += 1
+        # Display the minute
+        decimal = bcd(now_min)
+        set_digit(decimal >> 4, 8)
+        set_digit(decimal & 0x0F, 12)
 
-        # Calculate and set the minutes digits
-        if now_min < 10:
-            set_digit(0, 8)
-            set_digit(now_min, 12)
-        else:
-            digit_a = int(now_min / 10)
-            digit_b = now_min - (digit_a * 10)
-            set_digit(digit_a, 8)
-            set_digit(digit_b, 12)
-
-        # Set disconnected marker
+        # Set the disconnected marker
         ink = 0 if wout.isconnected() else 1
         matrix.plot(15, 7, ink)
 
@@ -584,14 +575,13 @@ def clock(timecheck=False):
         # Reset the 'do check' flag every other hour
         if now_hour % 2 > 0: timecheck = False
 
-        sleep(0.1)
+        sleep(0.03)
 
 
 def set_digit(value, posn):
     glyph = matrix.CHARSET[value]
     matrix.set_icon(glyph, posn)
     return posn + len(glyph) + 1
-
 
 
 def show_error(error_code):

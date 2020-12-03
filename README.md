@@ -52,6 +52,9 @@ ampy --port <FEATHER_DEVICE_PATH> put prefs.json
 
 ### Release History ###
 
+- 1.1.0 *3 December 2020*
+    - Revised code.
+    - Matrix display version.
 - 1.0.10 *19 November 2020*
     - Adds Feather Huzzah 32 version.
 - 1.0.9 *29 September 2020*

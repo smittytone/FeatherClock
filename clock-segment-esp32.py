@@ -430,11 +430,11 @@ def set_prefs(prefs_data):
     Set the clock's preferences to reflect the specified object's contents.
     """
     global prefs
-    prefs["mode"] = prefs_data["mode"]
-    prefs["colon"] = prefs_data["colon"]
-    prefs["flash"] = prefs_data["flash"]
-    prefs["bright"] = prefs_data["bright"]
-    prefs["on"] = prefs_data["on"]
+    if "mode" in prefs_data: prefs["mode"] = prefs_data["mode"]
+    if "colon" in prefs_data: prefs["colon"] = prefs_data["colon"]
+    if "flash" in prefs_data: prefs["flash"] = prefs_data["flash"]
+    if "bright" in prefs_data: prefs["bright"] = prefs_data["bright"]
+    if "on" in prefs_data: prefs["on"] = prefs_data["on"]
 
 
 def default_prefs():
@@ -535,7 +535,7 @@ def clock(timecheck=False):
         # (lit if the clock is disconnected)
         decimal = bcd(hour)
         if mode is False and hour < 10:
-            matrix.set_character(" ", 0, not wout.isconnected())
+            matrix.set_glyph(0, 0, not wout.isconnected())
         else:
             matrix.set_number(decimal >> 4, 0, not wout.isconnected())
         matrix.set_number(decimal & 0x0F, 1, False)

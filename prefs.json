@@ -1,6 +1,6 @@
-{ "mode": false,
+{ "mode": true,
   "colon": true,
-  "flash": true,
+  "flash": false,
   "bright": 12,
   "on": true,
   "bst": true }

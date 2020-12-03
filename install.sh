@@ -5,18 +5,19 @@
 #
 # Version 1.1.0
 
-# Set the Feather's device record
-dev=""
-
-if [[ -e device ]]; then
-    dev=$(cat device)
-fi
-
+# Set the Feather's device record using the argument
 dev=$1
 
 if [[ -z "$dev" ]]; then
-    echo "Error -- Device path not specified as an argument or in the file \'device\'"
-    exit 1
+    # No arg passed, so try the 'device' file
+    if [[ -e device ]]; then
+        dev=$(cat device)
+    fi
+
+    if [[ -z "$dev" ]]; then
+        echo "Error -- Device path not specified as an argument or in the file \"device\""
+        exit 1
+    fi
 fi
 
 # Check that ampy is installed
@@ -41,7 +42,7 @@ fi
 read -n 1 -s -p "Press [M] to use a matrix LED, or any other key for a segment LED" keypress
 echo
 
-type=""
+type="-segment"
 keypress=${keypress^^}
 if [[ $keypress == "M" ]]; then
     type="-matrix"

@@ -560,8 +560,7 @@ def clock(timecheck=False):
         matrix.plot(15, 7, ink)
 
         # Set am/pm as needed
-        ink = 0 if (is_pm == 1 and mode is False) else 1
-        matrix.plot(15, 0, ink)
+        if mode is False: matrix.plot(15, 0, is_pm)
 
         # Set the colon and present the display
         matrix.draw()

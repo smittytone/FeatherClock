@@ -1,7 +1,7 @@
 """
 Clock Matrix ESP32 - a very simple four-digit timepiece
 
-Version:   1.1.0
+Version:   1.1.1
 Author:    smittytone
 Copyright: 2020, Tony Smith
 Licence:   MIT
@@ -386,6 +386,7 @@ def get_time(timeout=10):
     # https://github.com/micropython/micropython/blob/master/ports/esp8266/modules/ntptime.py
     # Modify the standard code to extend the timeout, and catch OSErrors triggered when the
     # socket operation times out
+    log("Getting time")
     ntp_query = bytearray(48)
     ntp_query[0] = 0x1b
     address = socket.getaddrinfo("pool.ntp.org", 123)[0][-1]
@@ -416,7 +417,9 @@ def set_rtc(timeout=10):
         time_data = localtime(now_time)
         time_data = time_data[0:3] + (0,) + time_data[3:6] + (0,)
         RTC().datetime(time_data)
+        log("RTC set")
         return True
+    log("RTC not set")
     return False
 
 
@@ -480,6 +483,7 @@ def connect():
     if wout is None: wout = network.WLAN(network.STA_IF)
     if not wout.active(): wout.active(True)
     matrix.plot(15, 0, 1).draw()
+    log("Connecting")
     if not wout.isconnected():
         # Attempt to connect
         wout.connect("@SSID", "@PASS")
@@ -490,13 +494,17 @@ def connect():
             matrix.plot(15, 0, ink).draw()
             state = not state
             con_count += 1
-            if con_count > 40: break
+            if con_count > 60:
+                log("Breaking of connect cycle after 60s")
+                return
+    log("Connected")
 
 
 def initial_connect():
     # Connect and get the time
     connect()
-    timecheck = set_rtc(30)
+    timecheck = False
+    if wout.isconnected(): timecheck = set_rtc(30)
 
     # Clear the display and start the clock loop
     matrix.clear()
@@ -592,6 +600,13 @@ def show_error(error_code):
     matrix.set_icon(err_text)
     matrix.set_number(error_code, 10)
     matrix.update()
+    log("Error {}".format(error_code))
+
+
+def log(msg):
+    now = localtime()
+    with open("log.txt", "a") as file:
+        file.write("{}-{}-{} {}:{}:{} - {}\n".format(now[0], now[1], now[2], now[3], now[4], now[5], msg))
 
 
 def sync_text():
@@ -612,6 +627,8 @@ Set up the display on I2C
 """
 prefs = None
 wout = None
+do_log = True
+log_path = "log.txt"
 
 # Set default prefs
 default_prefs()
@@ -627,4 +644,16 @@ matrix.set_brightness(prefs["bright"])
 # Display 'sync' on the display while connecting,
 # and attempt to connect
 sync_text()
+
+# FROM 1.1.1
+# Add logging
+if do_log:
+    try:
+        with open(log_path, "r") as file:
+            pass
+    except:
+        with open(log_path, "w") as file:
+            file.write("FeatherCLock Log\n")
+
+# Make the connection
 initial_connect()

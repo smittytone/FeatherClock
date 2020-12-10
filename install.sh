@@ -3,7 +3,7 @@
 
 # Install the clock code with the requested WiFi credentials
 #
-# Version 1.1.0
+# Version 1.1.1
 
 # Set the Feather's device record using the argument
 dev=$1
@@ -49,7 +49,7 @@ if [[ $keypress == "M" ]]; then
 fi
 
 read -p "Enter your WiFi SSID: " ssid
-read -s -p "Enter your WiFi password: " pass
+read -p "Enter your WiFi password: " pass
 
 echo -e "\nAdding WiFi credentials to code..."
 sed "s|\"@SSID\"|\"$ssid\"|; \

@@ -1,7 +1,7 @@
 """
 Clock Matrix ESP32 - a very simple four-digit timepiece
 
-Version:   1.1.1
+Version:   1.1.2
 Author:    smittytone
 Copyright: 2020, Tony Smith
 Licence:   MIT
@@ -397,16 +397,16 @@ def get_time(timeout=10):
     err = 0
     try:
         err = 1
+        log("Getting NTP data ")
         _ = sock.sendto(ntp_query, address)
         err = 2
         msg = sock.recv(48)
+        log("Got NTP data ")
         err = 3
         val = struct.unpack("!I", msg[40:44])[0]
         return_value = val - 3155673600
     except:
-        if err is not 0:
-            show_error(err)
-        return_value = None
+        show_error(err)
     sock.close()
     return return_value
 
@@ -504,7 +504,7 @@ def initial_connect():
     # Connect and get the time
     connect()
     timecheck = False
-    if wout.isconnected(): timecheck = set_rtc(30)
+    if wout.isconnected(): timecheck = set_rtc()
 
     # Clear the display and start the clock loop
     matrix.clear()
@@ -575,9 +575,9 @@ def clock(timecheck=False):
 
         # Every two hours re-sync the RTC
         # (which is poor, see http://docs.micropython.org/en/latest/esp8266/general.html#real-time-clock)
-        if now_hour % 2 == 0 and timecheck is False:
+        if now_hour % 2 == 0 and new_min == 3 and timecheck is False:
             if not wout.isconnected(): connect()
-            if wout.isconnected(): timecheck = set_rtc(30)
+            if wout.isconnected(): timecheck = set_rtc()
 
         # Reset the 'do check' flag every other hour
         if now_hour % 2 > 0: timecheck = False

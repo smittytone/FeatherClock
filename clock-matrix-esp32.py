@@ -504,7 +504,7 @@ def initial_connect():
     # Connect and get the time
     connect()
     timecheck = False
-    if wout.isconnected(): timecheck = set_rtc()
+    if wout.isconnected(): timecheck = set_rtc(59)
 
     # Clear the display and start the clock loop
     matrix.clear()
@@ -575,9 +575,9 @@ def clock(timecheck=False):
 
         # Every two hours re-sync the RTC
         # (which is poor, see http://docs.micropython.org/en/latest/esp8266/general.html#real-time-clock)
-        if now_hour % 2 == 0 and new_min == 3 and timecheck is False:
+        if now_hour % 2 == 0 and (1 < now_min < 8) and timecheck is False:
             if not wout.isconnected(): connect()
-            if wout.isconnected(): timecheck = set_rtc()
+            if wout.isconnected(): timecheck = set_rtc(59)
 
         # Reset the 'do check' flag every other hour
         if now_hour % 2 > 0: timecheck = False
@@ -595,11 +595,6 @@ def show_error(error_code):
     """
     Present a simple error message on the LED.
     """
-    matrix.clear()
-    err_text = b'\xFE\x92\x92\x00\x1E\x10\x00\x1E\x10'
-    matrix.set_icon(err_text)
-    matrix.set_number(error_code, 10)
-    matrix.update()
     log("Error {}".format(error_code))
 
 

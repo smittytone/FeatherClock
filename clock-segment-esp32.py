@@ -1,7 +1,7 @@
 """
-Clock.py - a very simple four-digit timepiece
+Clock Segment ESP32 - a very simple four-digit timepiece
 
-Version:   1.1.0
+Version:   1.1.1
 Author:    smittytone
 Copyright: 2020, Tony Smith
 Licence:   MIT
@@ -13,7 +13,6 @@ Imports
 import usocket as socket
 import ustruct as struct
 import ujson as json
-import uselect
 import network
 from micropython import const
 from machine import I2C, Pin, RTC
@@ -71,19 +70,6 @@ class HT16K33:
         self.power_on()
 
     # *********** PUBLIC METHODS **********
-
-    def set_blink_rate(self, rate=0):
-        """
-        Set the display's flash rate.
-
-        Only four values (in Hz) are permitted: 0, 2, 1, and 0,5.
-
-        Args:
-            rate (int): The chosen flash rate. Default: 0Hz (no flash).
-        """
-        assert rate in (0, 0.5, 1, 2), "ERROR - Invalid blink rate set in set_blink_rate()"
-        self.blink_rate = rate & 0x03
-        self._write_cmd(self.HT16K33_GENERIC_CMD_BLINK | rate << 1)
 
     def set_brightness(self, brightness=15):
         """
@@ -374,6 +360,7 @@ def get_time(timeout=10):
     # https://github.com/micropython/micropython/blob/master/ports/esp8266/modules/ntptime.py
     # Modify the standard code to extend the timeout, and catch OSErrors triggered when the
     # socket operation times out
+    log("Getting time")
     ntp_query = bytearray(48)
     ntp_query[0] = 0x1b
     address = socket.getaddrinfo("pool.ntp.org", 123)[0][-1]
@@ -384,16 +371,16 @@ def get_time(timeout=10):
     err = 0
     try:
         err = 1
+        log("Getting NTP data ")
         _ = sock.sendto(ntp_query, address)
         err = 2
         msg = sock.recv(48)
+        log("Got NTP data ")
         err = 3
         val = struct.unpack("!I", msg[40:44])[0]
         return_value = val - 3155673600
     except:
-        if err is not 0:
-            show_error(err)
-        return_value = None
+        show_error(err)
     sock.close()
     return return_value
 
@@ -404,7 +391,9 @@ def set_rtc(timeout=10):
         time_data = localtime(now_time)
         time_data = time_data[0:3] + (0,) + time_data[3:6] + (0,)
         RTC().datetime(time_data)
+        log("RTC set")
         return True
+    log("RTC not set")
     return False
 
 
@@ -468,6 +457,7 @@ def connect():
     glyph = 0x39
     if wout is None: wout = network.WLAN(network.STA_IF)
     if not wout.active(): wout.active(True)
+    log("Connecting")
     if not wout.isconnected():
         # Attempt to connect
         wout.connect("@SSID", "@PASS")
@@ -478,12 +468,14 @@ def connect():
             state = not state
             con_count += 1
             if con_count > 40: break
+    log("Connected")
 
 
 def initial_connect():
     # Connect and get the time
     connect()
-    timecheck = set_rtc(30)
+    timecheck = False
+    if wout.isconnected(): timecheck = set_rtc(59)
 
     # Clear the display and start the clock loop
     matrix.clear()
@@ -555,9 +547,9 @@ def clock(timecheck=False):
 
         # Every two hours re-sync the RTC
         # (which is poor, see http://docs.micropython.org/en/latest/esp8266/general.html#real-time-clock)
-        if now_hour % 2 == 0 and timecheck is False:
+        if now_hour % 2 == 0 and (1 < now_min < 8) and timecheck is False:
             if not wout.isconnected(): connect()
-            if wout.isconnected(): timecheck = set_rtc(30)
+            if wout.isconnected(): timecheck = set_rtc(59)
 
         # Reset the 'do check' flag every other hour
         if now_hour % 2 > 0: timecheck = False
@@ -572,6 +564,12 @@ def show_error(error_code):
     for i in range(0, 3): matrix.set_glyph(err_text[i], i)
     matrix.set_number(error_code, 3)
     matrix.draw()
+
+
+def log(msg):
+    now = localtime()
+    with open("log.txt", "a") as file:
+        file.write("{}-{}-{} {}:{}:{} - {}\n".format(now[0], now[1], now[2], now[3], now[4], now[5], msg))
 
 
 def sync_text():

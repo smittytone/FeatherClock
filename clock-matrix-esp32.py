@@ -1,7 +1,7 @@
 """
 Clock Matrix ESP32 - a very simple four-digit timepiece
 
-Version:   1.1.2
+Version:   1.1.1
 Author:    smittytone
 Copyright: 2020, Tony Smith
 Licence:   MIT
@@ -13,7 +13,6 @@ Imports
 import usocket as socket
 import ustruct as struct
 import ujson as json
-import uselect
 import network
 from micropython import const
 from machine import I2C, Pin, RTC

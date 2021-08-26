@@ -3,7 +3,7 @@
 
 # Install the clock code with the requested WiFi credentials
 #
-# Version 1.1.1
+# Version 1.2.0
 
 # Set the Feather's device record using the argument
 dev=$1
@@ -21,7 +21,14 @@ if [[ -z "$dev" ]]; then
 fi
 
 # Check that ampy is installed
-command -v ampy >/dev/null || { echo "Error -- ampy not installed (see https://github.com/scientifichackers/ampy)"; exit 1; }
+# command -v ampy >/dev/null || { echo "Error -- ampy not installed (see https://github.com/scientifichackers/ampy)"; exit 1; }
+
+# Check that pyboard is installed
+command -v pyboard.py >/dev/null || {
+    command -v pyboard >/dev/null || {
+        echo "Error -- pyboard.py not installed (see https://docs.micropython.org/en/latest/reference/pyboard.py.html)"; exit 1;
+    }
+}
 
 # Make sure the Feather is connected befo re proceeding
 if [[ ! -e "$dev" ]]; then
@@ -57,7 +64,15 @@ sed "s|\"@SSID\"|\"$ssid\"|; \
      "$HOME/GitHub/featherclock/clock${type}${chip}.py" > "$HOME/main.py"
 
 echo "Copying \"clock${type}${chip}.py\" to device \"$dev\"..."
-ampy --port $dev put "$HOME/main.py"
+#ampy --port $dev put "$HOME/main.py"
+
+# Copy prefs.json if present if the current dir
+if [[ -e prefs.json ]]; then
+    pyboard -d $dev -f cp prefs.json :prefs.json
+fi
+
+# Copy the 'compiled' code
+pyboard -d $dev -f cp "$HOME/main.py" :main.py
 
 echo "Code copied. Press RESET on the Feather, or power cycle, to run the code."
 

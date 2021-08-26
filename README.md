@@ -1,4 +1,4 @@
-# FeatherClock 1.1.1 #
+# FeatherClock 1.2.0 #
 
 This repo contains code written for the [Adafruit Feather HUZZAH ESP8266](https://www.adafruit.com/product/2821) running [MicroPython](http://docs.micropython.org/en/latest/index.html). It now includes a version for the [Adafruit Feather HUZZAH ESP32](https://www.adafruit.com/product/3405) too.
 
@@ -10,7 +10,7 @@ Currently, the clock has no remote control, which the Electric Imp Platform make
 
 #### Pre-requisites ####
 
-1. `pip3 install adafruit-ampy`
+1. Install `pyboard.py` from [GitHub](https://github.com/micropython/micropython/blob/master/tools/pyboard.py).
 1. `pip3 install esptool`
 1. Running macOS Big Sur? You also need:
     1. `nano /usr/local/bin/esptool.py`
@@ -21,8 +21,9 @@ Currently, the clock has no remote control, which the Electric Imp Platform make
     1. Note the Feather’s device file path.
 1. Update MicroPython:
     1. `esptool.py --port <FEATHER_DEVICE_PATH> erase_flash`
-    1. `esptool.py --port <FEATHER_DEVICE_PATH> --baud 460800 write_flash --flash_size=detect 0 esp8266-20200911-v1.13.bin`
-1. Run `./install-app.sh <FEATHER_DEVICE_PATH>`
+    1. `esptool.py --port <FEATHER_DEVICE_PATH> --baud 460800 write_flash --flash_size=detect 0 esp32-20210623-v1.16.bin`
+1. `cd featherclock`
+1. Run `./install.sh <FEATHER_DEVICE_PATH>`
 1. Press `Enter` to continue or `Q` to quit.
 1. Enter your WiFi SSID.
 1. Enter your WiFi password.
@@ -32,7 +33,7 @@ Currently, the clock has no remote control, which the Electric Imp Platform make
 
 For now, the clock’s prefs are set by sending over a `prefs.json` file with the following values:
 
-```
+```json
 { "mode":   <true/false>,   # 24-hour (true) or 12-hour (false)
   "colon":  <true/false>,   # Show a colon between the hours and minutes readouts
   "flash":  <true/false>,   # Flash the colon symbol, if it's shown
@@ -40,11 +41,13 @@ For now, the clock’s prefs are set by sending over a `prefs.json` file with th
   "bst":    <true/false> }  # Auto-adjust for Daylight Saving Time
 ```
 
-Having installed `ampy` as above, you send over prefs file using:
+Having installed `pyboard.py` as above, you send over prefs file using:
 
+```shell
+pyboard.py -d <FEATHER_DEVICE_PATH> -f prefs.json :prefs.json
 ```
-ampy --port <FEATHER_DEVICE_PATH> put prefs.json
-```
+
+The `install.sh` script also copies this over.
 
 ### To Do ###
 
@@ -52,8 +55,10 @@ ampy --port <FEATHER_DEVICE_PATH> put prefs.json
 
 ### Release History ###
 
-- 1.1.1 *Unreleased*
+- 1.1.1 *26 August 2021*
     - Fix for post time-check pauses
+    - Update `install.sh` to use MicroPython’s [`pyboard.py`](https://docs.micropython.org/en/latest/reference/pyboard.py.html).
+    - Update `install.sh` to copy `prefs.json` over if it is present in the working directory.
 - 1.1.0 *3 December 2020*
     - Revised code.
     - Matrix display version.
@@ -84,4 +89,4 @@ ampy --port <FEATHER_DEVICE_PATH> put prefs.json
 
 ### Licence ###
 
-FeatherClock is copyright 2020, Tony Smith. It is released under the MIT licence.
+FeatherClock is copyright 2021, Tony Smith. It is released under the MIT licence.

@@ -1,4 +1,4 @@
-# FeatherClock 1.2.0 #
+# FeatherClock 1.2.1 #
 
 This repo contains code written for the [Adafruit Feather HUZZAH ESP8266](https://www.adafruit.com/product/2821) running [MicroPython](http://docs.micropython.org/en/latest/index.html). It now includes a version for the [Adafruit Feather HUZZAH ESP32](https://www.adafruit.com/product/3405) too.
 
@@ -20,8 +20,12 @@ Currently, the clock has no remote control, which the Electric Imp Platform make
 1. `ls /dev/cu*`
     1. Note the Feather’s device file path.
 1. Update MicroPython:
-    1. `esptool.py --port <FEATHER_DEVICE_PATH> erase_flash`
-    1. `esptool.py --port <FEATHER_DEVICE_PATH> --baud 460800 write_flash --flash_size=detect 0 esp32-20210623-v1.16.bin`
+    * For ESP32:
+        1. `esptool.py --chip esp32 --port <FEATHER_DEVICE_PATH> erase_flash`
+        1. `esptool.py --chip esp32 --port <FEATHER_DEVICE_PATH> --baud 460800 write_flash -z 0x1000 esp32-20210902-v1.17.bin`
+    * For ESP8266:
+        1. `esptool.py --port <FEATHER_DEVICE_PATH> erase_flash`
+        1. `esptool.py --port <FEATHER_DEVICE_PATH> --baud 460800 write_flash --flash_size=detect 0 esp8266-20210902-v1.17.bin`
 1. `cd featherclock`
 1. Run `./install.sh <FEATHER_DEVICE_PATH>`
 1. Press `Enter` to continue or `Q` to quit.
@@ -55,7 +59,10 @@ The `install.sh` script also copies this over.
 
 ### Release History ###
 
-- 1.1.1 *26 August 2021*
+- 1.2.1 *13 September 2021*
+    - Clarify installation instructions for ESP32 and ESP8266 boards.
+    - Update install script.
+- 1.2.0 *26 August 2021*
     - Fix for post time-check pauses
     - Update `install.sh` to use MicroPython’s [`pyboard.py`](https://docs.micropython.org/en/latest/reference/pyboard.py.html).
     - Update `install.sh` to copy `prefs.json` over if it is present in the working directory.

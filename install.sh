@@ -61,7 +61,7 @@ read -p "Enter your WiFi password: " pass
 echo -e "\nAdding WiFi credentials to code..."
 sed "s|\"@SSID\"|\"$ssid\"|; \
      s|\"@PASS\"|\"$pass\"|" \
-     "$HOME/GitHub/featherclock/clock${type}${chip}.py" > "$HOME/main.py"
+     "$HOME/GitHub/featherclock/clock${type}${chip}.py" > "main.py"
 
 echo "Copying \"clock${type}${chip}.py\" to device \"$dev\"..."
 #ampy --port $dev put "$HOME/main.py"
@@ -72,9 +72,9 @@ if [[ -e prefs.json ]]; then
 fi
 
 # Copy the 'compiled' code
-pyboard -d $dev -f cp "$HOME/main.py" :main.py
+pyboard -d $dev -f cp main.py :main.py
 
 echo "Code copied. Press RESET on the Feather, or power cycle, to run the code."
 
 # Remove artifact
-rm "$HOME/main.py"
+rm "main.py"

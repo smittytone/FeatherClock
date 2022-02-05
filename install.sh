@@ -3,7 +3,7 @@
 
 # Install the clock code with the requested WiFi credentials
 #
-# Version 1.2.0
+# Version 1.2.2
 
 # Set the Feather's device record using the argument
 dev=$1
@@ -15,7 +15,7 @@ if [[ -z "$dev" ]]; then
     fi
 
     if [[ -z "$dev" ]]; then
-        echo "Error -- Device path not specified as an argument or in the file \"device\""
+        echo "[ERROR] Device path not specified as an argument or in the file \"device\""
         exit 1
     fi
 fi
@@ -26,13 +26,13 @@ fi
 # Check that pyboard is installed
 command -v pyboard.py >/dev/null || {
     command -v pyboard >/dev/null || {
-        echo "Error -- pyboard.py not installed (see https://docs.micropython.org/en/latest/reference/pyboard.py.html)"; exit 1;
+        echo "[ERROR] pyboard.py not installed (see https://docs.micropython.org/en/latest/reference/pyboard.py.html)"; exit 1;
     }
 }
 
 # Make sure the Feather is connected befo re proceeding
 if [[ ! -e "$dev" ]]; then
-    echo "Error -- Feather is not connected to USB"
+    echo "[ERROR] Feather is not connected to USB"
     exit 1
 fi
 

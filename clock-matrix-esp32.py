@@ -1,9 +1,9 @@
 """
 Clock Matrix ESP32 - a very simple four-digit timepiece
 
-Version:   1.2.0
+Version:   1.2.2
 Author:    smittytone
-Copyright: 2021, Tony Smith
+Copyright: 2022, Tony Smith
 Licence:   MIT
 """
 

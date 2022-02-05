@@ -1,4 +1,4 @@
-# FeatherClock 1.2.1 #
+# FeatherClock 1.2.2 #
 
 This repo contains code written for the [Adafruit Feather HUZZAH ESP8266](https://www.adafruit.com/product/2821) running [MicroPython](http://docs.micropython.org/en/latest/index.html). It now includes a version for the [Adafruit Feather HUZZAH ESP32](https://www.adafruit.com/product/3405) too.
 
@@ -11,8 +11,8 @@ Currently, the clock has no remote control, which the Electric Imp Platform make
 #### Pre-requisites ####
 
 1. Install `pyboard.py` from [GitHub](https://github.com/micropython/micropython/blob/master/tools/pyboard.py).
-1. `pip3 install esptool`
-1. Running macOS Big Sur? You also need:
+1. Install `esptool.py` using `brew install esptool`
+1. Running macOS Big Sur on Intel? You also need to do this:
     1. `nano /usr/local/bin/esptool.py`
     1. Comment out lines 56 to 61 inclusive
     1. Save the file
@@ -53,15 +53,27 @@ pyboard.py -d <FEATHER_DEVICE_PATH> -f prefs.json :prefs.json
 
 The `install.sh` script also copies this over.
 
+To get `<FEATHER_DEVICE_PATH>`, you can add my Z Shell function [dlist()](https://gist.github.com/smittytone/15d00976df5b702debdcb3a8ae8f5bae) to your `.zshrc` file. After restarting your terminal, you can run:
+
+```shell
+pyboard.py -d $(dlist) -f prefs.json :prefs.json
+```
+
 ### To Do ###
 
 - Web UI for clock settings control.
 
 ### Release History ###
 
+- 1.2.2 *5 February 2022*
+    - Style install script errors.
+    - Update `esptool.py` installation instructions.
+    - Add `dlist()` link.
+    - No application code changes.
 - 1.2.1 *13 September 2021*
     - Clarify installation instructions for ESP32 and ESP8266 boards.
     - Update install script.
+    - No application code changes.
 - 1.2.0 *26 August 2021*
     - Fix for post time-check pauses
     - Update `install.sh` to use MicroPython’s [`pyboard.py`](https://docs.micropython.org/en/latest/reference/pyboard.py.html).
@@ -96,4 +108,4 @@ The `install.sh` script also copies this over.
 
 ### Licence ###
 
-FeatherClock is copyright 2021, Tony Smith. It is released under the MIT licence.
+FeatherClock is copyright 2022, Tony Smith. It is released under the MIT licence.

@@ -1,7 +1,7 @@
 """
 Clock Segment ESP32 - a very simple four-digit timepiece
 
-Version:   1.2.2
+Version:   1.2.3
 Author:    smittytone
 Copyright: 2022, Tony Smith
 Licence:   MIT

@@ -3,7 +3,7 @@
 
 # Install the clock code with the requested WiFi credentials
 #
-# Version 1.2.2
+# Version 1.2.3
 
 # Set the Feather's device record using the argument
 dev=$1
@@ -15,7 +15,9 @@ if [[ -z "$dev" ]]; then
     fi
 
     if [[ -z "$dev" ]]; then
-        echo "[ERROR] Device path not specified as an argument or in the file \"device\""
+        echo "Usage:"
+        echo "  ./install.sh /path/to/device"
+        echo "Optional: place /path/to/device in the file 'device' in this directory"
         exit 1
     fi
 fi

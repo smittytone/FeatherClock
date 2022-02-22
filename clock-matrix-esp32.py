@@ -405,7 +405,7 @@ def get_time(timeout=10):
         val = struct.unpack("!I", msg[40:44])[0]
         return_value = val - 3155673600
     except:
-        show_error("Could not set NTP", err)
+        log_error("Could not set NTP", err)
     sock.close()
     return return_value
 
@@ -418,7 +418,7 @@ def set_rtc(timeout=10):
         RTC().datetime(time_data)
         log("RTC set")
         return True
-    show_error("RTC not set")
+    log_error("RTC not set")
     return False
 
 
@@ -428,7 +428,7 @@ def load_prefs():
         with open("prefs.json", "r") as file:
             file_data = file.read()
     except:
-        show_error("No prefs file")
+        log_error("No prefs file")
         return
 
     if file_data != None:
@@ -436,7 +436,7 @@ def load_prefs():
             data = json.loads(file_data)
             set_prefs(data)
         except ValueError:
-            show_error("Prefs JSON decode error")
+            log_error("Prefs JSON decode error")
 
 
 def set_prefs(prefs_data):
@@ -590,7 +590,7 @@ def set_digit(value, posn):
     return posn + len(glyph) + 1
 
 
-def show_error(msg, error_code=0):
+def log_error(msg, error_code=0):
     """
     Log an error message
     """
@@ -601,10 +601,14 @@ def show_error(msg, error_code=0):
     log(msg)
 
 
+def log_debug(msg):
+    log("[DEBUG] {}".format(msg))
+
+
 def log(msg):
     now = localtime()
     with open("log.txt", "a") as file:
-        file.write("{}-{}-{} {}:{}:{} - {}\n".format(now[0], now[1], now[2], now[3], now[4], now[5], msg))
+        file.write("{}-{}-{} {}:{}:{} {}\n".format(now[0], now[1], now[2], now[3], now[4], now[5], msg))
 
 
 def sync_text():

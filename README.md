@@ -48,7 +48,7 @@ For now, the clock’s prefs are set by sending over a `prefs.json` file with th
 Having installed `pyboard.py` as above, you send over prefs file using:
 
 ```shell
-pyboard.py -d <FEATHER_DEVICE_PATH> -f prefs.json :prefs.json
+pyboard.py -d <FEATHER_DEVICE_PATH> -f cp prefs.json :prefs.json
 ```
 
 The `install.sh` script also copies this over.
@@ -56,7 +56,7 @@ The `install.sh` script also copies this over.
 To get `<FEATHER_DEVICE_PATH>`, you can add my Z Shell function [dlist()](https://gist.github.com/smittytone/15d00976df5b702debdcb3a8ae8f5bae) to your `.zshrc` file. After restarting your terminal, you can run:
 
 ```shell
-pyboard.py -d $(dlist) -f prefs.json :prefs.json
+pyboard.py -d $(dlist) -f cp prefs.json :prefs.json
 ```
 
 ### To Do ###

@@ -66,8 +66,8 @@ pyboard.py -d $(dlist) -f prefs.json :prefs.json
 ### Release History ###
 
 - 1.2.3 *Unreleased*
-    - Better help in `instal.sh`
-    - No application code changes.
+    - Better help in `install.sh`
+    - Errors issued to log file.
 - 1.2.2 *5 February 2022*
     - Style install script errors.
     - Update `esptool.py` installation instructions.

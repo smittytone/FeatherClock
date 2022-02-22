@@ -405,7 +405,7 @@ def get_time(timeout=10):
         val = struct.unpack("!I", msg[40:44])[0]
         return_value = val - 3155673600
     except:
-        show_error("Could not get NTP", err)
+        show_error("Could not set NTP", err)
     sock.close()
     return return_value
 
@@ -436,7 +436,7 @@ def load_prefs():
             data = json.loads(file_data)
             set_prefs(data)
         except ValueError:
-            show_error("JSON decode error")
+            show_error("Prefs JSON decode error")
 
 
 def set_prefs(prefs_data):

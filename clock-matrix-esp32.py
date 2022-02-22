@@ -405,7 +405,7 @@ def get_time(timeout=10):
         val = struct.unpack("!I", msg[40:44])[0]
         return_value = val - 3155673600
     except:
-        show_error(err)
+        show_error("Could not get NTP", err)
     sock.close()
     return return_value
 
@@ -418,7 +418,7 @@ def set_rtc(timeout=10):
         RTC().datetime(time_data)
         log("RTC set")
         return True
-    log("RTC not set")
+    show_error("RTC not set")
     return False
 
 
@@ -428,7 +428,7 @@ def load_prefs():
         with open("prefs.json", "r") as file:
             file_data = file.read()
     except:
-        print("Whoops: no prefs file")
+        show_error("No prefs file")
         return
 
     if file_data != None:
@@ -436,7 +436,7 @@ def load_prefs():
             data = json.loads(file_data)
             set_prefs(data)
         except ValueError:
-            print("Whoops: JSON decode error")
+            show_error("JSON decode error")
 
 
 def set_prefs(prefs_data):
@@ -590,11 +590,15 @@ def set_digit(value, posn):
     return posn + len(glyph) + 1
 
 
-def show_error(error_code):
+def show_error(msg, error_code=0):
     """
-    Present a simple error message on the LED.
+    Log an error message
     """
-    log("Error {}".format(error_code))
+    if error_code > 0:
+        msg = "[ERROR] {} ({})".format(msg, error_code)
+    else:
+        msg = "[ERROR] {}".format(msg) 
+    log(msg)
 
 
 def log(msg):

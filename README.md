@@ -65,9 +65,10 @@ pyboard.py -d $(dlist) -f cp prefs.json :prefs.json
 
 ### Release History ###
 
-- 1.2.3 *Unreleased*
+- 1.2.3 *23 February 2022*
     - Better help in `install.sh`
-    - Errors issued to log file.
+    - Device-side errors now issued to log file.
+    - Correct `pyboard` instructions.
 - 1.2.2 *5 February 2022*
     - Style install script errors.
     - Update `esptool.py` installation instructions.

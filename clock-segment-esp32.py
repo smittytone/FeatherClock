@@ -363,31 +363,39 @@ def get_time(timeout=10):
     log("Getting time")
     ntp_query = bytearray(48)
     ntp_query[0] = 0x1b
-    address = socket.getaddrinfo("pool.ntp.org", 123)[0][-1]
-    # Create DGRAM UDP socket
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.settimeout(timeout)
-    return_value = None
     err = 0
+    return_value = None
+    sock = None
     try:
+        log("Getting NTP address ")
+        address = socket.getaddrinfo("pool.ntp.org", 123)[0][-1]
+        
+        # Create DGRAM UDP socket
         err = 1
+        log("Getting NTP socket ")
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(timeout)
+        
+        err = 2
         log("Getting NTP data ")
         _ = sock.sendto(ntp_query, address)
-        err = 2
-        msg = sock.recv(48)
-        log("Got NTP data ")
+        
         err = 3
+        msg = sock.recv(48)
+        
+        err = 4
+        log("Got NTP data ")
         val = struct.unpack("!I", msg[40:44])[0]
         return_value = val - 3155673600
     except:
         log_error("Could not set NTP", err)
-    sock.close()
+    if sock: sock.close()
     return return_value
 
 
 def set_rtc(timeout=10):
     now_time = get_time(timeout)
-    if now_time is not None:
+    if now_time:
         time_data = localtime(now_time)
         time_data = time_data[0:3] + (0,) + time_data[3:6] + (0,)
         RTC().datetime(time_data)
@@ -467,7 +475,9 @@ def connect():
             matrix.set_glyph(glyph, 3, state).draw()
             state = not state
             con_count += 1
-            if con_count > 40: break
+            if con_count > 40:
+                matrix.set_glyph(glyph, 3, false).draw()
+                break
     log("Connected")
 
 

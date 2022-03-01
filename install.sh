@@ -73,6 +73,11 @@ if [[ -e prefs.json ]]; then
     pyboard -d $dev -f cp prefs.json :prefs.json
 fi
 
+# Copy log file then zap the device's one
+if pyboard -d $dev -f cp :log.txt log.txt; then
+    pyboard -d $dev -f rm :log.txt
+fi
+
 # Copy the 'compiled' code
 pyboard -d $dev -f cp main.py :main.py
 

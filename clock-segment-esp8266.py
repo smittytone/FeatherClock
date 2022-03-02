@@ -1,7 +1,7 @@
 """
 Clock Segment ESP8266 - a very simple four-digit timepiece
 
-Version:   1.2.3
+Version:   1.2.4
 Author:    smittytone
 Copyright: 2022, Tony Smith
 Licence:   MIT

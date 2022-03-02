@@ -3,7 +3,7 @@
 
 # Install the clock code with the requested WiFi credentials
 #
-# Version 1.2.3
+# Version 1.2.4
 
 # Set the Feather's device record using the argument
 dev=$1

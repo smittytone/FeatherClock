@@ -1,4 +1,4 @@
-# FeatherClock 1.2.3 #
+# FeatherClock 1.2.4 #
 
 This repo contains code written for the [Adafruit Feather HUZZAH ESP8266](https://www.adafruit.com/product/2821) running [MicroPython](http://docs.micropython.org/en/latest/index.html). It now includes a version for the [Adafruit Feather HUZZAH ESP32](https://www.adafruit.com/product/3405) too.
 
@@ -65,6 +65,9 @@ pyboard.py -d $(dlist) -f cp prefs.json :prefs.json
 
 ### Release History ###
 
+- 1.2.4 *Unreleased*
+    - Better resilience to WiFi connection loss.
+    - Better log file management.
 - 1.2.3 *23 February 2022*
     - Better help in `install.sh`
     - Device-side errors now issued to log file.

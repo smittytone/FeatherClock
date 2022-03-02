@@ -363,7 +363,7 @@ def get_time(timeout=10):
     log("Getting time")
     ntp_query = bytearray(48)
     ntp_query[0] = 0x1b
-    err = 0
+    err = 1
     return_value = None
     sock = None
     try:
@@ -371,19 +371,19 @@ def get_time(timeout=10):
         address = socket.getaddrinfo("pool.ntp.org", 123)[0][-1]
         
         # Create DGRAM UDP socket
-        err = 1
+        err = 2
         log("Getting NTP socket ")
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.settimeout(timeout)
         
-        err = 2
+        err = 3
         log("Getting NTP data ")
         _ = sock.sendto(ntp_query, address)
         
-        err = 3
+        err = 4
         msg = sock.recv(48)
         
-        err = 4
+        err = 5
         log("Got NTP data ")
         val = struct.unpack("!I", msg[40:44])[0]
         return_value = val - 3155673600

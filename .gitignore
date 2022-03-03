@@ -115,3 +115,5 @@ dmypy.json
 
 # Mine
 *.xcworkspace/xcuserdata/*
+log.txt
+

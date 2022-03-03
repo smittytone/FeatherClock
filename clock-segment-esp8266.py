@@ -545,8 +545,8 @@ def clock(timecheck=False):
             matrix.set_colon(now_sec % 2 == 0)
         matrix.draw()
 
-        # Every two hours re-sync the RTC
-        # (which is poor, see http://docs.micropython.org/en/latest/esp8266/general.html#real-time-clock)
+        # Every two hours re-sync the ESP8266 RTC, which is poor, see
+        # http://docs.micropython.org/en/latest/esp8266/general.html#real-time-clock
         if now_hour % 2 == 0 and (1 < now_min < 8) and timecheck is False:
             if not wout.isconnected(): connect()
             if wout.isconnected(): timecheck = set_rtc(59)

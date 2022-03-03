@@ -555,14 +555,13 @@ def clock(timecheck=False):
             matrix.set_colon(now_sec % 2 == 0)
         matrix.draw()
 
-        # Every two hours re-sync the RTC
-        # (which is poor, see http://docs.micropython.org/en/latest/esp8266/general.html#real-time-clock)
-        if now_hour % 2 == 0 and (1 < now_min < 8) and timecheck is False:
+        # Every six hours re-sync the ESP32 RTC
+        if now_hour % 6 == 0 and (1 < now_min < 8) and timecheck is False:
             if not wout.isconnected(): connect()
             if wout.isconnected(): timecheck = set_rtc(59)
 
         # Reset the 'do check' flag every other hour
-        if now_hour % 2 > 0: timecheck = False
+        if now_hour % 6 > 0: timecheck = False
 
 
 def log_error(msg, error_code=0):

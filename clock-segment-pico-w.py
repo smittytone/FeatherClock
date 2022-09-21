@@ -7,9 +7,8 @@ Copyright: 2022, Tony Smith
 Licence:   MIT
 '''
 
-'''
-Imports
-'''
+# ********** IMPORTS **********
+
 import network
 import usocket as socket
 import ustruct as struct
@@ -18,15 +17,14 @@ from micropython import const
 from machine import I2C, Pin, RTC
 from utime import localtime, sleep
 
-'''
-Globals
-'''
+# ********** GLOBALS **********
+
 prefs = None
 wout = None
+log_path = "log.txt"
 
-'''
-Classes
-'''
+# ********** CLASSES **********
+
 class HT16K33:
     '''
     A simple, generic driver for the I2C-connected Holtek HT16K33 controller chip.
@@ -335,9 +333,8 @@ class HT16K33Segment(HT16K33):
                 self.buffer[self.POS[i]] = (a | b | c)
         self._render()
 
-'''
-Functions
-'''
+# ********** CALENDAR FUNCTIONS **********
+
 def is_bst(now=None):
     '''
     Convenience function for 'bstCheck()'.
@@ -417,6 +414,7 @@ def is_leap_year(year):
     if year % 4 == 0 and (year % 100 > 0 or year % 400 == 0): return True
     return False
 
+# ********** RTC FUNCTIONS **********
 
 def get_time(timeout=10):
     # https://github.com/micropython/micropython/blob/master/ports/esp8266/modules/ntptime.py
@@ -466,6 +464,7 @@ def set_rtc(timeout=10):
     log_error("RTC not set")
     return False
 
+# ********** PREFS MANAGEMENT FUNCTIONS **********
 
 def load_prefs():
     file_data = None
@@ -494,6 +493,7 @@ def set_prefs(prefs_data):
     if "flash" in prefs_data: prefs["flash"] = prefs_data["flash"]
     if "bright" in prefs_data: prefs["bright"] = prefs_data["bright"]
     if "on" in prefs_data: prefs["on"] = prefs_data["on"]
+    if "do_log" in prefs_data: prefs["do_log"] = prefs_data["do_log"]
 
 
 def default_prefs():
@@ -509,7 +509,9 @@ def default_prefs():
     prefs["bst"] = True
     prefs["on"] = True
     prefs["url"] = "@AGENT"
+    prefs["do_log"] = True
 
+# ********** NETWORK FUNCTIONS **********
 
 def connect():
     '''
@@ -563,6 +565,7 @@ def bcd(bin_value):
         if (bin_value & 0xF000) > 0x4FFF: bin_value += 0x3000
     return (bin_value >> 8) & 0xFF
 
+# ********** CLOCK FUNCTIONS **********
 
 def clock(timecheck=False):
     '''
@@ -627,6 +630,7 @@ def clock(timecheck=False):
         # Reset the 'do check' flag every other hour
         if now_hour % 6 > 0: timecheck = False
 
+# ********** LOGGING FUNCTIONS **********
 
 def log_error(msg, error_code=0):
     '''
@@ -648,6 +652,7 @@ def log(msg):
     with open("log.txt", "a") as file:
         file.write("{}-{}-{} {}:{}:{} {}\n".format(now[0], now[1], now[2], now[3], now[4], now[5], msg))
 
+# ********** MISC FUNCTIONS **********
 
 def sync_text():
     '''
@@ -660,11 +665,8 @@ def sync_text():
     for i in range(0, 4): matrix.set_glyph(sync[i], i)
     matrix.draw()
 
+# ********** RUNTIME START **********
 
-'''
-This is the simple runtime start point.
-Set up the display on I2C
-'''
 if __name__ == '__main__':
     global wout
     
@@ -678,7 +680,16 @@ if __name__ == '__main__':
     i2c = I2C(0, scl=Pin(17), sda=Pin(16))
     matrix = HT16K33Segment(i2c)
     matrix.set_brightness(prefs["bright"])
-
+    
+    # Add logging
+    if prefs["do_log"]:
+        try:
+            with open(log_path, "r") as file:
+                pass
+        except:
+            with open(log_path, "w") as file:
+                file.write("FeatherCLock Log\n")
+            
     # Display 'sync' on the display while connecting,
     # and attempt to connect
     sync_text()

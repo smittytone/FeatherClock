@@ -7,9 +7,8 @@ Copyright: 2022, Tony Smith
 Licence:   MIT
 '''
 
-'''
-Imports
-'''
+# ********** IMPORTS **********
+
 import usocket as socket
 import ustruct as struct
 import ujson as json
@@ -18,23 +17,14 @@ from micropython import const
 from machine import I2C, Pin, RTC
 from utime import localtime, sleep
 
+# ********** GLOBALS **********
 
-'''
-Constants
-(see http://docs.micropython.org/en/latest/reference/speed_python.html#the-const-declaration)
-'''
-_HT16K33_BLINK_CMD = const(0x80)
-_HT16K33_BLINK_DISPLAY_ON = const(0x01)
-_HT16K33_CMD_BRIGHTNESS = const(0xE0)
-_HT16K33_SYSTEM_ON = const(0x21)
-_HT16K33_COLON_ROW = const(0x04)
-_HT16K33_MINUS_CHAR = const(0x10)
-_HT16K33_DEGREE_CHAR = const(0x11)
+prefs = None
+wout = None
+log_path = "log.txt"
 
+# ********** CLASSES **********
 
-'''
-Classes
-'''
 class HT16K33:
     '''
     A simple, generic driver for the I2C-connected Holtek HT16K33 controller chip.
@@ -480,10 +470,8 @@ class HT16K33MatrixFeatherWing(HT16K33):
         if a >= self.width * 2: return False
         return a
 
+# ********** CALENDAR FUNCTIONS **********
 
-'''
-Functions
-'''
 def is_bst(now=None):
     '''
     Convenience function for 'bstCheck()'.
@@ -563,6 +551,7 @@ def is_leap_year(year):
     if year % 4 == 0 and (year % 100 > 0 or year % 400 == 0): return True
     return False
 
+# ********** RTC FUNCTIONS **********
 
 def get_time(timeout=10):
     # https://github.com/micropython/micropython/blob/master/ports/esp8266/modules/ntptime.py
@@ -621,6 +610,7 @@ def load_prefs():
         except ValueError:
             log_error("Prefs JSON decode error")
 
+# ********** PREFERENCES FUNCTIONS **********
 
 def set_prefs(prefs_data):
     '''
@@ -632,7 +622,8 @@ def set_prefs(prefs_data):
     if "flash" in prefs_data: prefs["flash"] = prefs_data["flash"]
     if "bright" in prefs_data: prefs["bright"] = prefs_data["bright"]
     if "on" in prefs_data: prefs["on"] = prefs_data["on"]
-
+    if "do_log" in prefs_data: prefs["do_log"] = prefs_data["do_log"]
+    
 
 def default_prefs():
     '''
@@ -647,7 +638,9 @@ def default_prefs():
     prefs["bst"] = True
     prefs["on"] = True
     prefs["url"] = "@AGENT"
-
+    prefs["do_log"] = True
+    
+# ********** NETWORK FUNCTIONS **********
 
 def connect():
     '''
@@ -701,6 +694,7 @@ def bcd(bin_value):
         if (bin_value & 0xF000) > 0x4FFF: bin_value += 0x3000
     return (bin_value >> 8) & 0xFF
 
+# ********** CLOCK FUNCTIONS **********
 
 def clock(timecheck=False):
     '''
@@ -771,6 +765,7 @@ def set_digit(value, posn):
     matrix.set_icon(glyph, posn)
     return posn + len(glyph) + 1
 
+# ********** LOGGING FUNCTIONS **********
 
 def log_error(msg, error_code=0):
     '''
@@ -792,6 +787,7 @@ def log(msg):
     with open("log.txt", "a") as file:
         file.write("{}-{}-{} {}:{}:{} {}\n".format(now[0], now[1], now[2], now[3], now[4], now[5], msg))
 
+# ********** MISC FUNCTIONS **********
 
 def sync_text():
     '''
@@ -804,15 +800,7 @@ def sync_text():
     matrix.set_icon(sync, 0)
     matrix.draw()
 
-
-'''
-This is the simple runtime start point.
-Set up the display on I2C
-'''
-prefs = None
-wout = None
-do_log = True
-log_path = "log.txt"
+# ********** RUNTIME START **********
 
 # Set default prefs
 default_prefs()

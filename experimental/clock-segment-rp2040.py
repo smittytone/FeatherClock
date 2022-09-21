@@ -329,7 +329,7 @@ class HT16K33Segment(HT16K33):
                 self.buffer[self.POS[i]] = (a | b | c)
         self._render()
 
-# ********** CALENDAR FUNCIONS **********
+# ********** CALENDAR FUNCTIONS **********
 
 def is_bst(now=None):
     '''
@@ -410,7 +410,7 @@ def is_leap_year(year):
     if year % 4 == 0 and (year % 100 > 0 or year % 400 == 0): return True
     return False
 
-# ********** RTC FUNCIONS **********
+# ********** RTC FUNCTIONS **********
 
 def set_rtc(epoch_val):
     global yrdy
@@ -424,7 +424,7 @@ def set_rtc(epoch_val):
     RTC().datetime(time_data)
     log("RTC set")
 
-# ********** PREFS MANAGEMENT FUNCIONS **********
+# ********** PREFS MANAGEMENT FUNCTIONS **********
 
 def load_prefs():
     file_data = None
@@ -484,7 +484,7 @@ def default_prefs():
     prefs["on"] = True
     prefs["epoch"] = 0
 
-# ********** CLOCK MANAGEMENT FUNCIONS **********
+# ********** CLOCK MANAGEMENT FUNCTIONS **********
 
 def clock(timecheck=False):
     '''
@@ -580,7 +580,7 @@ def log(msg):
     with open("log.txt", "a") as file:
         file.write("{}-{}-{} {}:{}:{} {}\n".format(now[0], now[1], now[2], now[3], now[4], now[5], msg))
 
-# ********** MISC FUNCIONS **********
+# ********** MISC FUNCTIONS **********
 
 def bcd(bin_value):
     for i in range(0, 8):

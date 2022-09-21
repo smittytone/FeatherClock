@@ -2,16 +2,16 @@
 <Workspace
    version = "1.0">
    <FileRef
-      location = "group:clock-matrix-esp32.py">
+      location = "container:clock-matrix-esp32.py">
    </FileRef>
    <FileRef
-      location = "group:clock-segment-esp32.py">
+      location = "container:clock-segment-esp32.py">
    </FileRef>
    <FileRef
-      location = "group:clock-segment-esp8266.py">
+      location = "container:clock-segment-esp8266.py">
    </FileRef>
    <FileRef
-      location = "group:/Users/tsmith/GitHub/featherclock/clock-segment-pico-w.py">
+      location = "container:clock-segment-pico-w.py">
    </FileRef>
    <FileRef
       location = "group:install.sh">
@@ -32,7 +32,7 @@
          location = "group:install.sh">
       </FileRef>
       <FileRef
-         location = "group:/Users/tsmith/GitHub/featherclock/experimental/clock-segment-rp2040.py">
+         location = "container:experimental/clock-segment-rp2040.py">
       </FileRef>
    </Group>
 </Workspace>

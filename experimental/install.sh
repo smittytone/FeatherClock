@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # NOTE You may need to change the above line to /bin/bash
 
-# Install the clock code with the requested WiFi credentials
+# Install the clock code and update the preferences to
+# deliver the current time to the clock's RTC.
 #
 # Version 1.3.0
 
@@ -34,46 +35,20 @@ command -v pyboard.py >/dev/null || {
 
 # Make sure the Feather is connected befo re proceeding
 if [[ ! -e "$dev" ]]; then
-    echo "[ERROR] Feather or Pico W is not connected to USB"
+    echo "[ERROR] Device is not connected to USB"
     exit 1
 fi
 
-# FROM 1.0.10 -- Allow user to choose device type
-read -n 1 -s -p "Press [W] to install on a Pico W, Press [3] to install on an ESP32,\nor any other key for ESP8266 " keypress
-echo
-
-chip="esp8266"
-if [[ ${keypress} == "3" ]]; then
-    chip="esp32"
-elif [[ ${keypress} == "w" || ${keypress} == "W" ]]; then
-    chip="pico-w"
-fi
-
+chip="rp2040"
 dtype="segment"
-if [[ ${chip} != "pico-w" ]]; then
-    read -n 1 -s -p "Press [M] to use a matrix LED, or any other key for a segment LED" keypress
-    echo
-
-    keypress=${keypress^^}
-    if [[ ${keypress} == "M" ]]; then
-        dtype="matrix"
-    fi
-fi
-
-read -p "Enter your WiFi SSID: " ssid
-read -p "Enter your WiFi password: " pass
-
-echo -e "\nAdding WiFi credentials to code..."
-sed "s|\"@SSID\"|\"$ssid\"|; \
-     s|\"@PASS\"|\"$pass\"|" \
-     "$HOME/GitHub/featherclock/clock-${dtype}-${chip}.py" > "main.py"
-
-echo "Copying \"clock-${dtype}d${chip}.py\" to device \"$dev\"..."
-#ampy --port $dev put "$HOME/main.py"
+echo "Copying \"clock-${dtype}-${chip}.py\" to device \"$dev\"..."
 
 # Copy prefs.json if present if the current dir
 if [[ -e prefs.json ]]; then
-    pyboard -d $dev -f cp prefs.json :prefs.json
+    epoch=$(date +%s)
+    sed "s|@EPOCH|${epoch}|" prefs.json > uprefs.json
+    pyboard -d $dev -f cp uprefs.json :prefs.json
+    rm uprefs.json
 fi
 
 # Copy log file then zap the device's one
@@ -82,9 +57,6 @@ if pyboard -d $dev -f cp :log.txt log.txt; then
 fi
 
 # Copy the 'compiled' code
-pyboard -d $dev -f cp main.py :main.py
+pyboard -d $dev -f cp "clock-${dtype}-${chip}.py" :main.py
 
-echo "Code copied. Press RESET on the Feather, or power cycle, to run the code."
-
-# Remove artifact
-rm "main.py"
+echo "Code copied. Press RESET or power cycle, to run the code."

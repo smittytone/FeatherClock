@@ -1,15 +1,15 @@
-"""
+'''
 Clock Segment ESP8266 - a very simple four-digit timepiece
 
-Version:   1.2.4
+Version:   1.3.0
 Author:    smittytone
 Copyright: 2022, Tony Smith
 Licence:   MIT
-"""
+'''
 
-"""
+'''
 Imports
-"""
+'''
 import usocket as socket
 import ustruct as struct
 import ujson as json
@@ -19,10 +19,10 @@ from machine import I2C, Pin, RTC
 from utime import localtime, sleep
 
 
-"""
+'''
 Constants
 (see http://docs.micropython.org/en/latest/reference/speed_python.html#the-const-declaration)
-"""
+'''
 _HT16K33_BLINK_CMD = const(0x80)
 _HT16K33_BLINK_DISPLAY_ON = const(0x01)
 _HT16K33_CMD_BRIGHTNESS = const(0xE0)
@@ -32,17 +32,20 @@ _HT16K33_MINUS_CHAR = const(0x10)
 _HT16K33_DEGREE_CHAR = const(0x11)
 
 
+'''
+Classes
+'''
 class HT16K33:
-    """
+    '''
     A simple, generic driver for the I2C-connected Holtek HT16K33 controller chip.
     This release supports MicroPython and CircuitPython
 
-    Version:    3.0.2
+    Version:    3.3.1
     Bus:        I2C
     Author:     Tony Smith (@smittytone)
     License:    MIT
-    Copyright:  2020
-    """
+    Copyright:  2022
+    '''
 
     # *********** CONSTANTS **********
 
@@ -71,81 +74,100 @@ class HT16K33:
 
     # *********** PUBLIC METHODS **********
 
+    def set_blink_rate(self, rate=0):
+        '''
+        Set the display's flash rate.
+
+        Only four values (in Hz) are permitted: 0, 2, 1, and 0,5.
+
+        Args:
+            rate (int): The chosen flash rate. Default: 0Hz (no flash).
+        '''
+        assert rate in (0, 0.5, 1, 2), "ERROR - Invalid blink rate set in set_blink_rate()"
+        self.blink_rate = rate & 0x03
+        self._write_cmd(self.HT16K33_GENERIC_CMD_BLINK | rate << 1)
+
     def set_brightness(self, brightness=15):
-        """
+        '''
         Set the display's brightness (ie. duty cycle).
 
         Brightness values range from 0 (dim, but not off) to 15 (max. brightness).
 
         Args:
             brightness (int): The chosen flash rate. Default: 15 (100%).
-        """
+        '''
         if brightness < 0 or brightness > 15: brightness = 15
         self.brightness = brightness
         self._write_cmd(self.HT16K33_GENERIC_CMD_BRIGHTNESS | brightness)
 
     def draw(self):
-        """
+        '''
         Writes the current display buffer to the display itself.
 
         Call this method after updating the buffer to update
         the LED itself.
-        """
+        '''
+        self._render()
+
+    def update(self):
+        '''
+        Alternative for draw() for backwards compatibility
+        '''
         self._render()
 
     def clear(self):
-        """
+        '''
         Clear the buffer.
 
         Returns:
             The instance (self)
-        """
+        '''
         for i in range(0, len(self.buffer)): self.buffer[i] = 0x00
         return self
 
     def power_on(self):
-        """
+        '''
         Power on the controller and display.
-        """
+        '''
         self._write_cmd(self.HT16K33_GENERIC_SYSTEM_ON)
         self._write_cmd(self.HT16K33_GENERIC_DISPLAY_ON)
 
     def power_off(self):
-        """
+        '''
         Power on the controller and display.
-        """
+        '''
         self._write_cmd(self.HT16K33_GENERIC_DISPLAY_OFF)
         self._write_cmd(self.HT16K33_GENERIC_SYSTEM_OFF)
 
     # ********** PRIVATE METHODS **********
 
     def _render(self):
-        """
+        '''
         Write the display buffer out to I2C
-        """
+        '''
         buffer = bytearray(len(self.buffer) + 1)
         buffer[1:] = self.buffer
         buffer[0] = 0x00
         self.i2c.writeto(self.address, bytes(buffer))
 
     def _write_cmd(self, byte):
-        """
+        '''
         Writes a single command to the HT16K33. A private method.
-        """
+        '''
         self.i2c.writeto(self.address, bytes([byte]))
 
 
 class HT16K33Segment(HT16K33):
-    """
+    '''
     Micro/Circuit Python class for the Adafruit 0.56-in 4-digit,
     7-segment LED matrix backpack and equivalent Featherwing.
 
-    Version:    3.0.2
+    Version:    3.3.1
     Bus:        I2C
     Author:     Tony Smith (@smittytone)
     License:    MIT
-    Copyright:  2020
-    """
+    Copyright:  2022
+    '''
 
     # *********** CONSTANTS **********
 
@@ -165,28 +187,39 @@ class HT16K33Segment(HT16K33):
 
     def __init__(self, i2c, i2c_address=0x70):
         self.buffer = bytearray(16)
+        self.is_rotated = False
         super(HT16K33Segment, self).__init__(i2c, i2c_address)
 
     # *********** PUBLIC METHODS **********
 
+    def rotate(self):
+        '''
+        Rotate/flip the segment display.
+
+        Returns:
+            The instance (self)
+        '''
+        self.is_rotated = not self.is_rotated
+        return self
+
     def set_colon(self, is_set=True):
-        """
+        '''
         Set or unset the display's central colon symbol.
 
         This method updates the display buffer, but does not send the buffer to the display itself.
-        Call 'draw()' to render the buffer on the display.
+        Call 'update()' to render the buffer on the display.
 
         Args:
             isSet (bool): Whether the colon is lit (True) or not (False). Default: True.
 
         Returns:
             The instance (self)
-        """
+        '''
         self.buffer[self.HT16K33_SEGMENT_COLON_ROW] = 0x02 if is_set is True else 0x00
         return self
 
     def set_glyph(self, glyph, digit=0, has_dot=False):
-        """
+        '''
         Present a user-defined character glyph at the specified digit.
 
         Glyph values are 8-bit integers representing a pattern of set LED segments.
@@ -203,7 +236,7 @@ class HT16K33Segment(HT16K33):
                 3
 
         This method updates the display buffer, but does not send the buffer to the display itself.
-        Call 'draw()' to render the buffer on the display.
+        Call 'update()' to render the buffer on the display.
 
         Args:
             glyph (int):   The glyph pattern.
@@ -212,19 +245,21 @@ class HT16K33Segment(HT16K33):
 
         Returns:
             The instance (self)
-        """
+        '''
+        # Bail on incorrect row numbers or character values
         assert 0 <= digit < 4, "ERROR - Invalid digit (0-3) set in set_glyph()"
-        assert 0 <= glyph < 0xFF, "ERROR - Invalid glyph (0x00-0xFF) set in set_glyph()"
+        assert 0 <= glyph < 0x80, "ERROR - Invalid glyph (0x00-0x80) set in set_glyph()"
+
         self.buffer[self.POS[digit]] = glyph
         if has_dot is True: self.buffer[self.POS[digit]] |= 0x80
         return self
 
     def set_number(self, number, digit=0, has_dot=False):
-        """
+        '''
         Present single decimal value (0-9) at the specified digit.
 
         This method updates the display buffer, but does not send the buffer to the display itself.
-        Call 'draw()' to render the buffer on the display.
+        Call 'update()' to render the buffer on the display.
 
         Args:
             number (int):  The number to show.
@@ -233,13 +268,15 @@ class HT16K33Segment(HT16K33):
 
         Returns:
             The instance (self)
-        """
+        '''
+        # Bail on incorrect row numbers or character values
         assert 0 <= digit < 4, "ERROR - Invalid digit (0-3) set in set_number()"
         assert 0 <= number < 10, "ERROR - Invalid value (0-9) set in set_number()"
+
         return self.set_character(str(number), digit, has_dot)
 
     def set_character(self, char, digit=0, has_dot=False):
-        """
+        '''
         Present single alphanumeric character at the specified digit.
 
         Only characters from the class' character set are available:
@@ -247,7 +284,7 @@ class HT16K33Segment(HT16K33):
         Other characters can be defined and presented using 'set_glyph()'.
 
         This method updates the display buffer, but does not send the buffer to the display itself.
-        Call 'draw()' to render the buffer on the display.
+        Call 'update()' to render the buffer on the display.
 
         Args:
             char (string):  The character to show.
@@ -256,12 +293,14 @@ class HT16K33Segment(HT16K33):
 
         Returns:
             The instance (self)
-        """
+        '''
+        # Bail on incorrect row numbers
         assert 0 <= digit < 4, "ERROR - Invalid digit set in set_character()"
+
         char = char.lower()
         char_val = 0xFF
         if char == "deg":
-            char_val = HT16K33_SEGMENT_DEGREE_CHAR
+            char_val = self.HT16K33_SEGMENT_DEGREE_CHAR
         elif char == '-':
             char_val = self.HT16K33_SEGMENT_MINUS_CHAR
         elif char == ' ':
@@ -270,14 +309,45 @@ class HT16K33Segment(HT16K33):
             char_val = ord(char) - 87
         elif char in '0123456789':
             char_val = ord(char) - 48
+
+        # Bail on incorrect character values
         assert char_val != 0xFF, "ERROR - Invalid char string set in set_character()"
+
         self.buffer[self.POS[digit]] = self.CHARSET[char_val]
         if has_dot is True: self.buffer[self.POS[digit]] |= 0x80
         return self
 
+    def draw(self):
+        '''
+        Writes the current display buffer to the display itself.
 
+        Call this method after updating the buffer to update
+        the LED itself. Rotation handled here.
+        '''
+        if self.is_rotated:
+            # Swap digits 0,3 and 1,2
+            a = self.buffer[self.POS[0]]
+            self.buffer[self.POS[0]] = self.buffer[self.POS[3]]
+            self.buffer[self.POS[3]] = a
+
+            a = self.buffer[self.POS[1]]
+            self.buffer[self.POS[1]] = self.buffer[self.POS[2]]
+            self.buffer[self.POS[2]] = a
+
+            # Rotate each digit
+            for i in range(0, 4):
+                a = self.buffer[self.POS[i]]
+                b = (a & 0x07) << 3
+                c = (a & 0x38) >> 3
+                a &= 0xC0
+                self.buffer[self.POS[i]] = (a | b | c)
+        self._render()
+
+'''
+Functions
+'''
 def is_bst(now=None):
-    """
+    '''
     Convenience function for 'bstCheck()'.
 
     Args:
@@ -286,12 +356,12 @@ def is_bst(now=None):
 
     Returns:
         bool: Whether the specified date is within the BST period (true), or not (false).
-    """
+    '''
     return bst_check(now)
 
 
 def bst_check(now=None):
-    """
+    '''
     Determine whether the specified date lies within the British Summer Time period.
 
     Args:
@@ -300,7 +370,7 @@ def bst_check(now=None):
 
     Returns:
         bool: Whether the specified date is within the BST period (true), or not (false).
-    """
+    '''
     if now is None: now = localtime()
 
     if now[1] > 3 and now[1] < 10: return True
@@ -319,7 +389,7 @@ def bst_check(now=None):
 
 
 def day_of_week(day, month, year):
-    """
+    '''
     Determine the day of the week for a given day, month and year, using
     Zeller's Rule (see http://mathforum.org/dr.math/faq/faq.calendar.html).
 
@@ -330,7 +400,7 @@ def day_of_week(day, month, year):
 
     Returns:
         int: The day of the week: 0 (Monday) to 6 (Sunday).
-    """
+    '''
     month -= 2
     if month < 1: month += 12
     century = int(str(year)[:2])
@@ -343,7 +413,7 @@ def day_of_week(day, month, year):
 
 
 def is_leap_year(year):
-    """
+    '''
     Is the current year a leap year?
 
     Args:
@@ -351,7 +421,7 @@ def is_leap_year(year):
 
     Returns:
         bool: Whether the year is a leap year (True) or not (False).
-    """
+    '''
     if year % 4 == 0 and (year % 100 > 0 or year % 400 == 0): return True
     return False
 
@@ -415,9 +485,9 @@ def load_prefs():
 
 
 def set_prefs(prefs_data):
-    """
+    '''
     Set the clock's preferences to reflect the specified object's contents.
-    """
+    '''
     global prefs
     if "mode" in prefs_data: prefs["mode"] = prefs_data["mode"]
     if "colon" in prefs_data: prefs["colon"] = prefs_data["colon"]
@@ -427,9 +497,9 @@ def set_prefs(prefs_data):
 
 
 def default_prefs():
-    """
+    '''
     Set the clock's default preferences.
-    """
+    '''
     global prefs
     prefs = {}
     prefs["mode"] = True
@@ -442,13 +512,13 @@ def default_prefs():
 
 
 def connect():
-    """
+    '''
     Attempt to connect to the Internet as a station, and flash the decimal
     point at the right-side of the display while the connection is in
     progress. Upon connection, set the RTC then start the clock.
     NOTE Replace '@SSID' and '@PASS' with your own WiFi credentials.
          The 'install-app.sh' script does this for you
-    """
+    '''
     global wout
 
     err = 0
@@ -492,14 +562,14 @@ def bcd(bin_value):
 
 
 def clock(timecheck=False):
-    """
+    '''
     The primary clock routine: in infinite loop that displays the time
     from the UTC every pass and flips the display's central colon every
     second.
     NOTE The code calls 'isBST()' to determine if we are in British Summer Time.
          You will need to alter that call if you use some other form of daylight
          savings calculation.
-    """
+    '''
 
     mode = prefs["mode"]
 
@@ -556,9 +626,9 @@ def clock(timecheck=False):
 
 
 def log_error(msg, error_code=0):
-    """
+    '''
     Log an error message
-    """
+    '''
     if error_code > 0:
         msg = "[ERROR] {} ({})".format(msg, error_code)
     else:
@@ -577,21 +647,21 @@ def log(msg):
 
 
 def sync_text():
-    """
+    '''
     This function displays the text 'SYNC' on the display while the
     newly booted clock is connecting to the Internet and getting the
     current time.
-    """
+    '''
     matrix.clear()
     sync = b'\x6D\x6E\x37\x39'
     for i in range(0, 4): matrix.set_glyph(sync[i], i)
     matrix.draw()
 
 
-"""
+'''
 This is the simple runtime start point.
 Set up the display on I2C
-"""
+'''
 prefs = None
 wout = None
 

@@ -1,4 +1,4 @@
-# FeatherClock 1.2.4 #
+# FeatherClock 1.3.0 #
 
 This repo contains code written for the [Adafruit Feather HUZZAH ESP8266](https://www.adafruit.com/product/2821) running [MicroPython](http://docs.micropython.org/en/latest/index.html). It now includes a version for the [Adafruit Feather HUZZAH ESP32](https://www.adafruit.com/product/3405) too.
 
@@ -9,6 +9,8 @@ Currently, the clock has no remote control, which the Electric Imp Platform make
 ### Installation ###
 
 #### Pre-requisites ####
+
+*For ESP32/2866 boards*
 
 1. Install `pyboard.py` from [GitHub](https://github.com/micropython/micropython/blob/master/tools/pyboard.py).
 1. Install `esptool.py` using `brew install esptool`
@@ -29,6 +31,19 @@ Currently, the clock has no remote control, which the Electric Imp Platform make
 1. `cd featherclock`
 1. Run `./install.sh <FEATHER_DEVICE_PATH>`
 1. Press `Enter` to continue or `Q` to quit.
+1. Enter your WiFi SSID.
+1. Enter your WiFi password.
+1. After the code has copied, power-cycle your Feather Clock or press the RESET button.
+
+*For RP2040 boards*
+
+1. Install `pyboard.py` from [GitHub](https://github.com/micropython/micropython/blob/master/tools/pyboard.py).
+1. Download [MicroPython](https://micropython.org/resources/firmware/ADAFRUIT_QTPY_RP2040-20220618-v1.19.1.uf2) and drop the `.uf2` file onto the mounted `RP2` drive.
+1. Connect your assembled Feather Clock (Feather plus LED add-on).
+1. `ls /dev/cu*`
+    1. Note the Feather’s device file path.
+1. `cd featherclock`
+1. Run `./install.sh <FEATHER_DEVICE_PATH>`
 1. Enter your WiFi SSID.
 1. Enter your WiFi password.
 1. After the code has copied, power-cycle your Feather Clock or press the RESET button.
@@ -65,7 +80,8 @@ pyboard.py -d $(dlist) -f cp prefs.json :prefs.json
 
 ### Release History ###
 
-- 1.2.4 *Unreleased*
+- 1.3.0 *Unreleased*
+    - Add [Trinkey RP2040](https://www.adafruit.com/product/5056) version.
     - Better resilience to WiFi connection loss.
     - Better log file management.
 - 1.2.3 *23 February 2022*

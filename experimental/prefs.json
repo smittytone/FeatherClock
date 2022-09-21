@@ -1,0 +1,8 @@
+{ "mode": true,
+  "colon": true,
+  "flash": true,
+  "bright": 4,
+  "on": true,
+  "bst": true,
+  "epoch": @EPOCH
+}

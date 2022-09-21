@@ -11,6 +11,9 @@
       location = "group:clock-segment-esp8266.py">
    </FileRef>
    <FileRef
+      location = "group:/Users/tsmith/GitHub/featherclock/clock-segment-pico-w.py">
+   </FileRef>
+   <FileRef
       location = "group:install.sh">
    </FileRef>
    <FileRef
@@ -19,4 +22,17 @@
    <FileRef
       location = "group:README.md">
    </FileRef>
+   <Group
+      location = "group:experimental"
+      name = "experimental">
+      <FileRef
+         location = "group:prefs.json">
+      </FileRef>
+      <FileRef
+         location = "group:install.sh">
+      </FileRef>
+      <FileRef
+         location = "group:/Users/tsmith/GitHub/featherclock/experimental/clock-segment-rp2040.py">
+      </FileRef>
+   </Group>
 </Workspace>

@@ -1,5 +1,5 @@
 '''
-Clock Segment ESP32 - a very simple four-digit timepiece
+Clock Segment RP2040 - a very simple four-digit timepiece
 
 Version:   1.3.0
 Author:    smittytone
@@ -10,27 +10,19 @@ Licence:   MIT
 '''
 Imports
 '''
+import network
 import usocket as socket
 import ustruct as struct
 import ujson as json
-import network
 from micropython import const
 from machine import I2C, Pin, RTC
 from utime import localtime, sleep
 
-
 '''
-Constants
-(see http://docs.micropython.org/en/latest/reference/speed_python.html#the-const-declaration)
+Globals
 '''
-_HT16K33_BLINK_CMD = const(0x80)
-_HT16K33_BLINK_DISPLAY_ON = const(0x01)
-_HT16K33_CMD_BRIGHTNESS = const(0xE0)
-_HT16K33_SYSTEM_ON = const(0x21)
-_HT16K33_COLON_ROW = const(0x04)
-_HT16K33_MINUS_CHAR = const(0x10)
-_HT16K33_DEGREE_CHAR = const(0x11)
-
+prefs = None
+wout = None
 
 '''
 Classes
@@ -439,20 +431,20 @@ def get_time(timeout=10):
     try:
         log("Getting NTP address ")
         address = socket.getaddrinfo("pool.ntp.org", 123)[0][-1]
-        
+
         # Create DGRAM UDP socket
         err = 2
         log("Getting NTP socket ")
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.settimeout(timeout)
-        
+
         err = 3
         log("Getting NTP data ")
         _ = sock.sendto(ntp_query, address)
-        
+
         err = 4
         msg = sock.recv(48)
-        
+
         err = 5
         log("Got NTP data ")
         val = struct.unpack("!I", msg[40:44])[0]
@@ -546,8 +538,9 @@ def connect():
             state = not state
             con_count += 1
             if con_count > 40:
-                matrix.set_glyph(glyph, 3, false).draw()
-                break
+                matrix.set_glyph(glyph, 3, true).draw()
+                log("Not connected after timeout")
+                return
     log("Connected")
 
 
@@ -623,6 +616,7 @@ def clock(timecheck=False):
         matrix.set_colon(prefs["colon"])
         if prefs["colon"] is True and prefs["flash"] is True:
             matrix.set_colon(now_sec % 2 == 0)
+
         matrix.draw()
 
         # Every six hours re-sync the ESP32 RTC
@@ -671,21 +665,21 @@ def sync_text():
 This is the simple runtime start point.
 Set up the display on I2C
 '''
-prefs = None
-wout = None
+if __name__ == '__main__':
+    global wout
+    
+    # Set default prefs
+    default_prefs()
 
-# Set default prefs
-default_prefs()
+    # Load non-default prefs, if any
+    load_prefs()
+    
+    # Not a matrix, but use the term for code consistency
+    i2c = I2C(0, scl=Pin(17), sda=Pin(16))
+    matrix = HT16K33Segment(i2c)
+    matrix.set_brightness(prefs["bright"])
 
-# Load non-default prefs, if any
-load_prefs()
-
-# Initialize hardware
-i2c = I2C(scl=Pin(22), sda=Pin(23))
-matrix = HT16K33Segment(i2c)
-matrix.set_brightness(prefs["bright"])
-
-# Display 'sync' on the display while connecting,
-# and attempt to connect
-sync_text()
-initial_connect()
+    # Display 'sync' on the display while connecting,
+    # and attempt to connect
+    sync_text()
+    initial_connect()

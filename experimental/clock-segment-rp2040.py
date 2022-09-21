@@ -1,5 +1,5 @@
 '''
-Clock Segment ESP32 - a very simple four-digit timepiece
+Clock Segment RP2040 - a very simple four-digit timepiece
 
 Version:   1.3.0
 Author:    smittytone
@@ -7,34 +7,21 @@ Copyright: 2022, Tony Smith
 Licence:   MIT
 '''
 
-'''
-Imports
-'''
-import usocket as socket
+# ********** IMPORTS **********
+
 import ustruct as struct
 import ujson as json
-import network
 from micropython import const
 from machine import I2C, Pin, RTC
-from utime import localtime, sleep
+from utime import localtime, sleep, mktime
 
+# ********** GLOBALS **********
 
-'''
-Constants
-(see http://docs.micropython.org/en/latest/reference/speed_python.html#the-const-declaration)
-'''
-_HT16K33_BLINK_CMD = const(0x80)
-_HT16K33_BLINK_DISPLAY_ON = const(0x01)
-_HT16K33_CMD_BRIGHTNESS = const(0xE0)
-_HT16K33_SYSTEM_ON = const(0x21)
-_HT16K33_COLON_ROW = const(0x04)
-_HT16K33_MINUS_CHAR = const(0x10)
-_HT16K33_DEGREE_CHAR = const(0x11)
+prefs = None
+yrdy = 0
 
+# ********** CLASSES **********
 
-'''
-Classes
-'''
 class HT16K33:
     '''
     A simple, generic driver for the I2C-connected Holtek HT16K33 controller chip.
@@ -155,7 +142,6 @@ class HT16K33:
         Writes a single command to the HT16K33. A private method.
         '''
         self.i2c.writeto(self.address, bytes([byte]))
-
 
 class HT16K33Segment(HT16K33):
     '''
@@ -343,9 +329,8 @@ class HT16K33Segment(HT16K33):
                 self.buffer[self.POS[i]] = (a | b | c)
         self._render()
 
-'''
-Functions
-'''
+# ********** CALENDAR FUNCIONS **********
+
 def is_bst(now=None):
     '''
     Convenience function for 'bstCheck()'.
@@ -425,55 +410,21 @@ def is_leap_year(year):
     if year % 4 == 0 and (year % 100 > 0 or year % 400 == 0): return True
     return False
 
+# ********** RTC FUNCIONS **********
 
-def get_time(timeout=10):
-    # https://github.com/micropython/micropython/blob/master/ports/esp8266/modules/ntptime.py
-    # Modify the standard code to extend the timeout, and catch OSErrors triggered when the
-    # socket operation times out
-    log("Getting time")
-    ntp_query = bytearray(48)
-    ntp_query[0] = 0x1b
-    err = 1
-    return_value = None
-    sock = None
-    try:
-        log("Getting NTP address ")
-        address = socket.getaddrinfo("pool.ntp.org", 123)[0][-1]
-        
-        # Create DGRAM UDP socket
-        err = 2
-        log("Getting NTP socket ")
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.settimeout(timeout)
-        
-        err = 3
-        log("Getting NTP data ")
-        _ = sock.sendto(ntp_query, address)
-        
-        err = 4
-        msg = sock.recv(48)
-        
-        err = 5
-        log("Got NTP data ")
-        val = struct.unpack("!I", msg[40:44])[0]
-        return_value = val - 3155673600
-    except:
-        log_error("Could not set NTP", err)
-    if sock: sock.close()
-    return return_value
+def set_rtc(epoch_val):
+    global yrdy
+    
+    time_data = localtime(epoch_val)
+    yrdy = time_data[7]
+    # Tuple format: (year, month, mday, hour, minute, second, weekday, yearday)
+    
+    time_data = time_data[0:3] + (0,) + time_data[3:6] + (0,)
+    # Tuple format: (year, month, day, weekday, hours, minutes, seconds)
+    RTC().datetime(time_data)
+    log("RTC set")
 
-
-def set_rtc(timeout=10):
-    now_time = get_time(timeout)
-    if now_time:
-        time_data = localtime(now_time)
-        time_data = time_data[0:3] + (0,) + time_data[3:6] + (0,)
-        RTC().datetime(time_data)
-        log("RTC set")
-        return True
-    log_error("RTC not set")
-    return False
-
+# ********** PREFS MANAGEMENT FUNCIONS **********
 
 def load_prefs():
     file_data = None
@@ -488,6 +439,7 @@ def load_prefs():
         try:
             data = json.loads(file_data)
             set_prefs(data)
+            set_rtc(prefs["epoch"])
         except ValueError:
             log_error("Prefs JSON decode error")
 
@@ -502,6 +454,20 @@ def set_prefs(prefs_data):
     if "flash" in prefs_data: prefs["flash"] = prefs_data["flash"]
     if "bright" in prefs_data: prefs["bright"] = prefs_data["bright"]
     if "on" in prefs_data: prefs["on"] = prefs_data["on"]
+    if "epoch" in prefs_data: prefs["epoch"] = prefs_data["epoch"]
+
+
+def save_prefs():
+    '''
+    Write the current prefs to Flash.
+    '''
+    global prefs
+    try:
+        json_prefs = json.dumps(prefs)
+        with open("prefs.json", "w") as file:
+            file.write(json_prefs)
+    except:
+        log_error("Prefs JSON save error")
 
 
 def default_prefs():
@@ -516,60 +482,9 @@ def default_prefs():
     prefs["bright"] = 10
     prefs["bst"] = True
     prefs["on"] = True
-    prefs["url"] = "@AGENT"
+    prefs["epoch"] = 0
 
-
-def connect():
-    '''
-    Attempt to connect to the Internet as a station, and flash the decimal
-    point at the right-side of the display while the connection is in
-    progress. Upon connection, set the RTC then start the clock.
-    NOTE Replace '@SSID' and '@PASS' with your own WiFi credentials.
-         The 'install-app.sh' script does this for you
-    '''
-    global wout
-
-    err = 0
-    con_count = 0
-    state = True
-    glyph = 0x39
-    if wout is None: wout = network.WLAN(network.STA_IF)
-    if not wout.active(): wout.active(True)
-    log("Connecting")
-    if not wout.isconnected():
-        # Attempt to connect
-        wout.connect("@SSID", "@PASS")
-        while not wout.isconnected():
-            # Flash char 4's decimal point during connection
-            sleep(0.5)
-            matrix.set_glyph(glyph, 3, state).draw()
-            state = not state
-            con_count += 1
-            if con_count > 40:
-                matrix.set_glyph(glyph, 3, false).draw()
-                break
-    log("Connected")
-
-
-def initial_connect():
-    # Connect and get the time
-    connect()
-    timecheck = False
-    if wout.isconnected(): timecheck = set_rtc(59)
-
-    # Clear the display and start the clock loop
-    matrix.clear()
-    clock(timecheck)
-
-
-def bcd(bin_value):
-    for i in range(0, 8):
-        bin_value = bin_value << 1
-        if i == 7: break
-        if (bin_value & 0xF00) > 0x4FF: bin_value += 0x300
-        if (bin_value & 0xF000) > 0x4FFF: bin_value += 0x3000
-    return (bin_value >> 8) & 0xFF
-
+# ********** CLOCK MANAGEMENT FUNCIONS **********
 
 def clock(timecheck=False):
     '''
@@ -580,7 +495,8 @@ def clock(timecheck=False):
          You will need to alter that call if you use some other form of daylight
          savings calculation.
     '''
-
+    global prefs
+    
     mode = prefs["mode"]
 
     while True:
@@ -607,9 +523,9 @@ def clock(timecheck=False):
         # (lit if the clock is disconnected)
         decimal = bcd(hour)
         if mode is False and hour < 10:
-            matrix.set_glyph(0, 0, not wout.isconnected())
+            matrix.set_glyph(0, 0, False)
         else:
-            matrix.set_number(decimal >> 4, 0, not wout.isconnected())
+            matrix.set_number(decimal >> 4, 0, False)
         matrix.set_number(decimal & 0x0F, 1, False)
 
         # Display the minute
@@ -623,16 +539,26 @@ def clock(timecheck=False):
         matrix.set_colon(prefs["colon"])
         if prefs["colon"] is True and prefs["flash"] is True:
             matrix.set_colon(now_sec % 2 == 0)
-        matrix.draw()
+        
+        if show_time_button.value() == 0:
+            matrix.draw()
+        else:
+            matrix.clear().draw()
 
-        # Every six hours re-sync the ESP32 RTC
-        if now_hour % 6 == 0 and (1 < now_min < 8) and timecheck is False:
-            if not wout.isconnected(): connect()
-            if wout.isconnected(): timecheck = set_rtc(59)
+        # Every hour dump the RTC in case of resets
+        if (1 < now_min < 10) and timecheck is False:
+            rtc_time = RTC().datetime()
+            # Tuple format: (year, month, day, weekday, hours, minutes, seconds)
+            py_time = rtc_time[0:3] + rtc_time[4:7] + (rtc_time[3], yrdy,)
+            # Tuple format: (year, month, mday, hour, minute, second, weekday, yearday)
+            prefs["epoch"] = mktime(py_time)
+            save_prefs()
+            timecheck = True
 
         # Reset the 'do check' flag every other hour
-        if now_hour % 6 > 0: timecheck = False
+        if now_min > 10: timecheck = False
 
+# ********** LOGGING FUNCTIONS **********
 
 def log_error(msg, error_code=0):
     '''
@@ -654,38 +580,33 @@ def log(msg):
     with open("log.txt", "a") as file:
         file.write("{}-{}-{} {}:{}:{} {}\n".format(now[0], now[1], now[2], now[3], now[4], now[5], msg))
 
+# ********** MISC FUNCIONS **********
 
-def sync_text():
-    '''
-    This function displays the text 'SYNC' on the display while the
-    newly booted clock is connecting to the Internet and getting the
-    current time.
-    '''
-    matrix.clear()
-    sync = b'\x6D\x6E\x37\x39'
-    for i in range(0, 4): matrix.set_glyph(sync[i], i)
-    matrix.draw()
+def bcd(bin_value):
+    for i in range(0, 8):
+        bin_value = bin_value << 1
+        if i == 7: break
+        if (bin_value & 0xF00) > 0x4FF: bin_value += 0x300
+        if (bin_value & 0xF000) > 0x4FFF: bin_value += 0x3000
+    return (bin_value >> 8) & 0xFF
 
+# ********** RUNTIME START **********
 
-'''
-This is the simple runtime start point.
-Set up the display on I2C
-'''
-prefs = None
-wout = None
+if __name__ == '__main__':
+    # Set default prefs
+    default_prefs()
 
-# Set default prefs
-default_prefs()
+    # Load non-default prefs, if any
+    load_prefs()
+    
+    # We're not using a matrix, but use the term for code consistency
+    i2c = I2C(0, scl=Pin(17), sda=Pin(16))
+    matrix = HT16K33Segment(i2c)
+    matrix.set_brightness(prefs["bright"])
+    
+    # Config the button -- this will be pressed to show the time
+    show_time_button = Pin(12, Pin.IN, Pin.PULL_UP)
 
-# Load non-default prefs, if any
-load_prefs()
-
-# Initialize hardware
-i2c = I2C(scl=Pin(22), sda=Pin(23))
-matrix = HT16K33Segment(i2c)
-matrix.set_brightness(prefs["bright"])
-
-# Display 'sync' on the display while connecting,
-# and attempt to connect
-sync_text()
-initial_connect()
+    # Clear the display and start the clock loop
+    matrix.clear().draw()
+    clock(False)

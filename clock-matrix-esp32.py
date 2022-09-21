@@ -784,7 +784,7 @@ def log_debug(msg):
 
 def log(msg):
     now = localtime()
-    with open("log.txt", "a") as file:
+    with open(log_path, "a") as file:
         file.write("{}-{}-{} {}:{}:{} {}\n".format(now[0], now[1], now[2], now[3], now[4], now[5], msg))
 
 # ********** MISC FUNCTIONS **********
@@ -802,30 +802,31 @@ def sync_text():
 
 # ********** RUNTIME START **********
 
-# Set default prefs
-default_prefs()
+if __name__ == '__main__':
+    # Set default prefs
+    default_prefs()
 
-# Load non-default prefs, if any
-load_prefs()
+    # Load non-default prefs, if any
+    load_prefs()
 
-# Initialize hardware
-i2c = I2C(scl=Pin(22), sda=Pin(23))
-matrix = HT16K33MatrixFeatherWing(i2c)
-matrix.set_brightness(prefs["bright"])
+    # Initialize hardware
+    i2c = I2C(scl=Pin(22), sda=Pin(23))
+    matrix = HT16K33MatrixFeatherWing(i2c)
+    matrix.set_brightness(prefs["bright"])
 
-# Display 'sync' on the display while connecting,
-# and attempt to connect
-sync_text()
+    # Display 'sync' on the display while connecting,
+    # and attempt to connect
+    sync_text()
 
-# FROM 1.1.1
-# Add logging
-if do_log:
-    try:
-        with open(log_path, "r") as file:
-            pass
-    except:
-        with open(log_path, "w") as file:
-            file.write("FeatherCLock Log\n")
+    # FROM 1.1.1
+    # Add logging
+    if prefs["do_log"]:
+        try:
+            with open(log_path, "r") as file:
+                pass
+        except:
+            with open(log_path, "w") as file:
+                file.write("FeatherCLock Log\n")
 
-# Make the connection
-initial_connect()
+    # Make the connection
+    initial_connect()

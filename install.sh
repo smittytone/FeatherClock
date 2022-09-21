@@ -68,8 +68,7 @@ sed "s|\"@SSID\"|\"$ssid\"|; \
      s|\"@PASS\"|\"$pass\"|" \
      "$HOME/GitHub/featherclock/clock-${dtype}-${chip}.py" > "main.py"
 
-echo "Copying \"clock-${dtype}d${chip}.py\" to device \"$dev\"..."
-#ampy --port $dev put "$HOME/main.py"
+echo "Copying \"clock-${dtype}-${chip}.py\" to device \"$dev\"..."
 
 # Copy prefs.json if present if the current dir
 if [[ -e prefs.json ]]; then

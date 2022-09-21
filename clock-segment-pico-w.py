@@ -649,7 +649,7 @@ def log_debug(msg):
 
 def log(msg):
     now = localtime()
-    with open("log.txt", "a") as file:
+    with open(log_path, "a") as file:
         file.write("{}-{}-{} {}:{}:{} {}\n".format(now[0], now[1], now[2], now[3], now[4], now[5], msg))
 
 # ********** MISC FUNCTIONS **********
@@ -668,8 +668,6 @@ def sync_text():
 # ********** RUNTIME START **********
 
 if __name__ == '__main__':
-    global wout
-    
     # Set default prefs
     default_prefs()
 

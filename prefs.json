@@ -3,4 +3,6 @@
   "flash": true,
   "bright": 12,
   "on": true,
-  "bst": true }
+  "bst": true,
+  "do_log": true
+}

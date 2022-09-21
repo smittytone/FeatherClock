@@ -1,8 +1,8 @@
 # FeatherClock 1.3.0 #
 
-This repo contains code written for the [Adafruit Feather HUZZAH ESP8266](https://www.adafruit.com/product/2821) running [MicroPython](http://docs.micropython.org/en/latest/index.html). It now includes a version for the [Adafruit Feather HUZZAH ESP32](https://www.adafruit.com/product/3405) too.
+This repo contains code written for the [Adafruit Feather HUZZAH ESP8266](https://www.adafruit.com/product/2821), the [Adafruit Feather HUZZAH ESP32](https://www.adafruit.com/product/3405) and the [Raspberry Pi Pico W](), all running [MicroPython](http://micropython.org/).
 
-It is an initial attempt to replicate my [Electric Imp clock project](https://github.com/smittytone/Clock). It uses the [Adafruit FeatherWing](https://learn.adafruit.com/adafruit-7-segment-led-featherwings/overview) four-digit, seven-segment LED add-on.
+It is an attempt to replicate my [Electric Imp clock project](https://github.com/smittytone/Clock). It uses the [Adafruit FeatherWing](https://learn.adafruit.com/adafruit-7-segment-led-featherwings/overview) four-digit, seven-segment LED add-on, or any other HT16K33-based segment LED for that matter.
 
 Currently, the clock has no remote control, which the Electric Imp Platform makes very easy to implement, but is rather less so here. You can [set preferences](#clock-settings), though. Adding a web UI, served locally or remotely, lies in a future phase of the project.
 
@@ -18,8 +18,18 @@ Currently, the clock has no remote control, which the Electric Imp Platform make
     1. `nano /usr/local/bin/esptool.py`
     1. Comment out lines 56 to 61 inclusive
     1. Save the file
-1. Connect your assembled Feather Clock (Feather plus LED add-on).
-1. `ls /dev/cu*`
+
+*For Pico W boards*
+
+1. Install `pyboard.py` from [GitHub](https://github.com/micropython/micropython/blob/master/tools/pyboard.py).
+1. Download [MicroPython](https://micropython.org/resources/firmware/ADAFRUIT_QTPY_RP2040-20220618-v1.19.1.uf2) and drop the `.uf2` file onto the mounted `RP2` drive.
+
+#### App Installation ####
+
+*For ESP32/2866 boards*
+
+1. Connect your assembled FeatherClock (Feather plus LED add-on).
+1. Run `ls /dev/cu*`
     1. Note the Feather’s device file path.
 1. Update MicroPython:
     * For ESP32:
@@ -30,23 +40,22 @@ Currently, the clock has no remote control, which the Electric Imp Platform make
         1. `esptool.py --port <FEATHER_DEVICE_PATH> --baud 460800 write_flash --flash_size=detect 0 esp8266-20210902-v1.17.bin`
 1. `cd featherclock`
 1. Run `./install.sh <FEATHER_DEVICE_PATH>`
-1. Press `Enter` to continue or `Q` to quit.
+1. Press `3` for an ESP32 device, or `2` key for ESP8266.
 1. Enter your WiFi SSID.
 1. Enter your WiFi password.
-1. After the code has copied, power-cycle your Feather Clock or press the RESET button.
+1. After the code has copied, power-cycle your FeatherClock or press the **RESET** button.
 
-*For RP2040 boards*
+*For Pico W boards*
 
-1. Install `pyboard.py` from [GitHub](https://github.com/micropython/micropython/blob/master/tools/pyboard.py).
-1. Download [MicroPython](https://micropython.org/resources/firmware/ADAFRUIT_QTPY_RP2040-20220618-v1.19.1.uf2) and drop the `.uf2` file onto the mounted `RP2` drive.
-1. Connect your assembled Feather Clock (Feather plus LED add-on).
+1. Connect your assembled FeatherClock (Pico W plus HT16K33-based LED).
 1. `ls /dev/cu*`
-    1. Note the Feather’s device file path.
+    1. Note the Pico’s device file path.
 1. `cd featherclock`
 1. Run `./install.sh <FEATHER_DEVICE_PATH>`
+1. Press `w` for a Pico W.
 1. Enter your WiFi SSID.
 1. Enter your WiFi password.
-1. After the code has copied, power-cycle your Feather Clock or press the RESET button.
+1. After the code has copied, power-cycle your FeatherClock.
 
 ### Clock Settings ###
 
@@ -66,9 +75,9 @@ Having installed `pyboard.py` as above, you send over prefs file using:
 pyboard.py -d <FEATHER_DEVICE_PATH> -f cp prefs.json :prefs.json
 ```
 
-The `install.sh` script also copies this over.
+The `install.sh` script does this for you.
 
-To get `<FEATHER_DEVICE_PATH>`, you can add my Z Shell function [dlist()](https://gist.github.com/smittytone/15d00976df5b702debdcb3a8ae8f5bae) to your `.zshrc` file. After restarting your terminal, you can run:
+To get `<FEATHER_DEVICE_PATH>`, you can add my Z Shell function [`dlist()`](https://gist.github.com/smittytone/15d00976df5b702debdcb3a8ae8f5bae) to your `.zshrc` file. After restarting your terminal, you can run:
 
 ```shell
 pyboard.py -d $(dlist) -f cp prefs.json :prefs.json
@@ -81,9 +90,10 @@ pyboard.py -d $(dlist) -f cp prefs.json :prefs.json
 ### Release History ###
 
 - 1.3.0 *Unreleased*
-    - Add [Trinkey RP2040](https://www.adafruit.com/product/5056) version.
+    - Add experimental [Trinkey RP2040](https://www.adafruit.com/product/5056) version.
     - Better resilience to WiFi connection loss.
     - Better log file management.
+    - Update to latest HT16K33 drivers.
 - 1.2.3 *23 February 2022*
     - Better help in `install.sh`
     - Device-side errors now issued to log file.

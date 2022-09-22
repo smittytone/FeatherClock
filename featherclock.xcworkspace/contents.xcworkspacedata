@@ -8,6 +8,9 @@
       location = "container:clock-segment-esp32.py">
    </FileRef>
    <FileRef
+      location = "container:clock-matrix-esp8266.py">
+   </FileRef>
+   <FileRef
       location = "container:clock-segment-esp8266.py">
    </FileRef>
    <FileRef

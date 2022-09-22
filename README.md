@@ -1,14 +1,12 @@
 # FeatherClock 1.3.0 #
 
-This repo contains code written for the [Adafruit Feather HUZZAH ESP32](https://www.adafruit.com/product/3405) and the [Raspberry Pi Pico W](), all running [MicroPython](http://micropython.org/).
+This repo contains code written for the [Adafruit Feather HUZZAH ESP32](https://www.adafruit.com/product/3405) and the [Raspberry Pi Pico W](https://datasheets.raspberrypi.com/picow/pico-w-datasheet.pdf), all running [MicroPython](http://micropython.org/).
 
 It is an attempt to replicate my [Electric Imp clock project](https://github.com/smittytone/Clock). It uses the [Adafruit FeatherWing](https://learn.adafruit.com/adafruit-7-segment-led-featherwings/overview) four-digit, seven-segment LED add-on, or any other HT16K33-based segment LED for that matter.
 
 Currently, the clock has no remote control, which the Electric Imp Platform makes very easy to implement, but is rather less so here. You can [set preferences](#clock-settings), though. Adding a web UI, served locally or remotely, lies in a future phase of the project.
 
-#### Archive ####
-
-I previously supported the [Adafruit Feather HUZZAH ESP8266](https://www.adafruit.com/product/2821), but this is no longer the case: its RTC is poor and it has too little memory. If you are using this board, you can find the code in the [`archive`](/archive) directory.
+**Note** I previously supported the [Adafruit Feather HUZZAH ESP8266](https://www.adafruit.com/product/2821), but this is no longer the case: its RTC is poor and it has too little memory. If you are using this board, you can find the code in the [`archive`](/archive) directory. I will instead be focusing on boards that are more modern.
 
 ### Installation ###
 
@@ -18,10 +16,6 @@ I previously supported the [Adafruit Feather HUZZAH ESP8266](https://www.adafrui
 
 1. Install `pyboard.py` from [GitHub](https://github.com/micropython/micropython/blob/master/tools/pyboard.py).
 1. Install `esptool.py` using `brew install esptool`
-1. Running macOS Big Sur on Intel? You also need to do this:
-    1. `nano /usr/local/bin/esptool.py`
-    1. Comment out lines 56 to 61 inclusive
-    1. Save the file
 
 *For Pico W boards*
 
@@ -67,7 +61,8 @@ For now, the clock’s prefs are set by sending over a `prefs.json` file with th
   "colon":  <true/false>,   # Show a colon between the hours and minutes readouts
   "flash":  <true/false>,   # Flash the colon symbol, if it's shown
   "bright": 10,             # Display brightness from 1 (dim) to 15 (bright)
-  "bst":    <true/false> }  # Auto-adjust for Daylight Saving Time
+  "bst":    <true/false>,   # Auto-adjust for Daylight Saving Time
+  "do_log": <true/false> }  # Write log data to the file `log.txt` on the device
 ```
 
 Having installed `pyboard.py` as above, you send over prefs file using:
@@ -76,12 +71,12 @@ Having installed `pyboard.py` as above, you send over prefs file using:
 pyboard.py -d <FEATHER_DEVICE_PATH> -f cp prefs.json :prefs.json
 ```
 
-The `install.sh` script does this for you.
+However, the `install.sh` script does this for you, and allows you to enter your WiFi credentials
 
 To get `<FEATHER_DEVICE_PATH>`, you can add my Z Shell function [`dlist()`](https://gist.github.com/smittytone/15d00976df5b702debdcb3a8ae8f5bae) to your `.zshrc` file. After restarting your terminal, you can run:
 
 ```shell
-pyboard.py -d $(dlist) -f cp prefs.json :prefs.json
+./install.sh $(dlist)
 ```
 
 ### To Do ###

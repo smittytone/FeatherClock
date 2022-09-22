@@ -39,19 +39,17 @@ if [[ ! -e "$dev" ]]; then
 fi
 
 # FROM 1.0.10 -- Allow user to choose device type
-read -n 1 -s -p "Press [W] to install on a Pico W, Press [3] to install on an ESP32,\nor any other key for ESP8266 " keypress
+read -n 1 -s -p "Press [3] to install on an ESP32, or any other key to install on a Pico W " keypress
 echo
 
-chip="esp8266"
+chip="pico-w"
 if [[ ${keypress} == "3" ]]; then
     chip="esp32"
-elif [[ ${keypress} == "w" || ${keypress} == "W" ]]; then
-    chip="pico-w"
 fi
 
 dtype="segment"
 if [[ ${chip} != "pico-w" ]]; then
-    read -n 1 -s -p "Press [M] to use a matrix LED, or any other key for a segment LED" keypress
+    read -n 1 -s -p "Press [M] to use a matrix LED, or any other key for a segment LED " keypress
     echo
 
     keypress=${keypress^^}
@@ -76,8 +74,10 @@ if [[ -e prefs.json ]]; then
 fi
 
 # Copy log file then zap the device's one
-if pyboard -d $dev -f cp :log.txt log.txt; then
+if pyboard -d $dev -f cp :log.txt log.txt > /dev/null; then
     pyboard -d $dev -f rm :log.txt
+else
+    echo "Could not copy log.txt from the device"
 fi
 
 # Copy the 'compiled' code

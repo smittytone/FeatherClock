@@ -429,20 +429,20 @@ def get_time(timeout=10):
     try:
         log("Getting NTP address ")
         address = socket.getaddrinfo("pool.ntp.org", 123)[0][-1]
-        
+
         # Create DGRAM UDP socket
         err = 2
         log("Getting NTP socket ")
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.settimeout(timeout)
-        
+
         err = 3
         log("Getting NTP data ")
         _ = sock.sendto(ntp_query, address)
-        
+
         err = 4
         msg = sock.recv(48)
-        
+
         err = 5
         log("Got NTP data ")
         val = struct.unpack("!I", msg[40:44])[0]
@@ -494,7 +494,7 @@ def set_prefs(prefs_data):
     if "bright" in prefs_data: prefs["bright"] = prefs_data["bright"]
     if "on" in prefs_data: prefs["on"] = prefs_data["on"]
     if "do_log" in prefs_data: prefs["do_log"] = prefs_data["do_log"]
-    
+
 
 def default_prefs():
     '''
@@ -510,7 +510,7 @@ def default_prefs():
     prefs["on"] = True
     prefs["url"] = "@AGENT"
     prefs["do_log"] = True
-    
+
 # ********** NETWORK FUNCTIONS **********
 
 def connect():
@@ -669,7 +669,7 @@ def bcd(bin_value):
         if (bin_value & 0xF00) > 0x4FF: bin_value += 0x300
         if (bin_value & 0xF000) > 0x4FFF: bin_value += 0x3000
     return (bin_value >> 8) & 0xFF
-    
+
 # ********** RUNTIME START **********
 
 if __name__ == '__main__':

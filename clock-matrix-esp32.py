@@ -9,10 +9,10 @@ Licence:   MIT
 
 # ********** IMPORTS **********
 
+import network
 import usocket as socket
 import ustruct as struct
 import ujson as json
-import network
 from micropython import const
 from machine import I2C, Pin, RTC
 from utime import localtime, sleep
@@ -146,7 +146,6 @@ class HT16K33:
         '''
         self.i2c.writeto(self.address, bytes([byte]))
 
-
 class HT16K33MatrixFeatherWing(HT16K33):
     """
     Micro/Circuit Python class for the Adafruit 0.8-in 16x8 LED matrix FeatherWing.
@@ -161,117 +160,29 @@ class HT16K33MatrixFeatherWing(HT16K33):
     # *********** CONSTANTS **********
 
     CHARSET = [
-        b"\x00\x00",              # space - Ascii 32
-        b"\xfa",                  # !
-        b"\xc0\x00\xc0",          # "
-        b"\x24\x7e\x24\x7e\x24",  # #
-        b"\x24\xd4\x56\x48",      # $
-        b"\xc6\xc8\x10\x26\xc6",  # %
-        b"\x6c\x92\x6a\x04\x0a",  # &
-        b"\xc0",                  # '
-        b"\x7c\x82",              # (
-        b"\x82\x7c",              # )
-        b"\x10\x7c\x38\x7c\x10",  # *
-        b"\x10\x10\x7c\x10\x10",  # +
-        b"\x06\x07",              # ,
-        b"\x10\x10\x10\x10",      # -
-        b"\x06\x06",              # .
-        b"\x04\x08\x10\x20\x40",  # /
-        b"\x7c\x8a\x92\xa2\x7c",  # 0 - Ascii 48
-        b"\x42\xfe\x02",          # 1
-        b"\x46\x8a\x92\x92\x62",  # 2
-        b"\x44\x92\x92\x92\x6c",  # 3
-        b"\x18\x28\x48\xfe\x08",  # 4
-        b"\xf4\x92\x92\x92\x8c",  # 5
-        b"\x3c\x52\x92\x92\x8c",  # 6
-        b"\x80\x8e\x90\xa0\xc0",  # 7
-        b"\x6c\x92\x92\x92\x6c",  # 8
-        b"\x60\x92\x92\x94\x78",  # 9
-        b"\x36\x36",              # : - Ascii 58
-        b"\x36\x37",              #
-        b"\x10\x28\x44\x82",      # <
-        b"\x24\x24\x24\x24\x24",  # =
-        b"\x82\x44\x28\x10",      # >
-        b"\x60\x80\x9a\x90\x60",  # ?
-        b"\x7c\x82\xba\xaa\x78",  # @
-        b"\x7e\x90\x90\x90\x7e",  # A - Ascii 65
-        b"\xfe\x92\x92\x92\x6c",  # B
-        b"\x7c\x82\x82\x82\x44",  # C
-        b"\xfe\x82\x82\x82\x7c",  # D
-        b"\xfe\x92\x92\x92\x82",  # E
-        b"\xfe\x90\x90\x90\x80",  # F
-        b"\x7c\x82\x92\x92\x5c",  # G
-        b"\xfe\x10\x10\x10\xfe",  # H
-        b"\x82\xfe\x82",          # I
-        b"\x0c\x02\x02\x02\xfc",  # J
-        b"\xfe\x10\x28\x44\x82",  # K
-        b"\xfe\x02\x02\x02",      # L
-        b"\xfe\x40\x20\x40\xfe",  # M
-        b"\xfe\x40\x20\x10\xfe",  # N
-        b"\x7c\x82\x82\x82\x7c",  # O
-        b"\xfe\x90\x90\x90\x60",  # P
-        b"\x7c\x82\x92\x8c\x7a",  # Q
-        b"\xfe\x90\x90\x98\x66",  # R
-        b"\x64\x92\x92\x92\x4c",  # S
-        b"\x80\x80\xfe\x80\x80",  # T
-        b"\xfc\x02\x02\x02\xfc",  # U
-        b"\xf8\x04\x02\x04\xf8",  # V
-        b"\xfc\x02\x3c\x02\xfc",  # W
-        b"\xc6\x28\x10\x28\xc6",  # X
-        b"\xe0\x10\x0e\x10\xe0",  # Y
-        b"\x86\x8a\x92\xa2\xc2",  # Z - Ascii 90
-        b"\xfe\x82\x82",          # [
-        b"\x40\x20\x10\x08\x04",  # \
-        b"\x82\x82\xfe",          # ]
-        b"\x20\x40\x80\x40\x20",  # ^
-        b"\x02\x02\x02\x02\x02",  # _
-        b"\xc0\xe0",              # '
-        b"\x04\x2a\x2a\x1e",      # a - Ascii 97
-        b"\xfe\x22\x22\x1c",      # b
-        b"\x1c\x22\x22\x22",      # c
-        b"\x1c\x22\x22\xfc",      # d
-        b"\x1c\x2a\x2a\x10",      # e
-        b"\x10\x7e\x90\x80",      # f
-        b"\x18\x25\x25\x3e",      # g
-        b"\xfe\x20\x20\x1e",      # h
-        b"\xbc\x02",              # i
-        b"\x02\x01\x21\xbe",      # j
-        b"\xfe\x08\x14\x22",      # k
-        b"\xfc\x02",              # l
-        b"\x3e\x20\x18\x20\x1e",  # m
-        b"\x3e\x20\x20 \x1e",     # n
-        b"\x1c\x22\x22\x1c",      # o
-        b"\x3f\x22\x22\x1c",      # p
-        b"\x1c\x22\x22\x3f",      # q
-        b"\x22\x1e\x20\x10",      # r
-        b"\x12\x2a\x2a\x04",      # s
-        b"\x20\x7c\x22\x04",      # t
-        b"\x3c\x02\x02\x3e",      # u
-        b"\x38\x04\x02\x04\x38",  # v
-        b"\x3c\x06\x0c\x06\x3c",  # w
-        b"\x22\x14\x08\x14\x22",  # x
-        b"\x39\x05\x06\x3c",      # y
-        b"\x26\x2a\x2a\x32",      # z - Ascii 122
-        b"\x10\x7c\x82\x82",      #
-        b"\xee",                  # |
-        b"\x82\x82\x7c\x10",      #
-        b"\x40\x80\x40\x80",      # ~
-        b"\x60\x90\x90\x60"       # Degrees sign - Ascii 127
+        b"\x7C\x82\x7C",    # 0
+        b"\x42\xFE\x02",    # 1
+        b"\x4E\x92\x62",    # 2
+        b"\x44\x92\x6C",    # 3
+        b"\xF0\x08\x3E",    # 4
+        b"\x62\x92\x8E",    # 5
+        b"\x7C\x92\x0C",    # 6
+        b"\x8E\x90\xE0",    # 7
+        b"\x6C\x92\x6C",    # 8
+        b"\x60\x92\x7C",    # 9
+        b"\x00\x00\x00"     # space
     ]
 
     # ********** PRIVATE PROPERTIES **********
 
     width = 16
     height = 8
-    def_chars = None
     is_inverse = False
 
     # *********** CONSTRUCTOR **********
 
     def __init__(self, i2c, i2c_address=0x70):
         self.buffer = bytearray(self.width * 2)
-        self.def_chars = []
-        for i in range(32): self.def_chars.append(b"\x00")
         super(HT16K33MatrixFeatherWing, self).__init__(i2c, i2c_address)
 
     # *********** PUBLIC METHODS **********
@@ -303,17 +214,15 @@ class HT16K33MatrixFeatherWing(HT16K33):
         Returns:
             The instance (self)
         """
-        # Bail on incorrect row numbers or character values
         assert 0 < len(glyph) <= self.width * 2, "ERROR - Invalid glyph set in set_icon()"
         assert 0 <= column < self.width, "ERROR - Invalid column number set in set_icon()"
-        
         for i in range(len(glyph)):
             buf_column = self._get_row(column + i)
             if buf_column is False: break
             self.buffer[buf_column] = glyph[i] if self.is_inverse is False else ((~ glyph[i]) & 0xFF)
         return self
 
-    def set_character(self, ascii_value=32, column=0):
+    def set_number(self, number=0, column=0):
         """
         Display a single character specified by its Ascii value on the matrix.
 
@@ -324,90 +233,10 @@ class HT16K33MatrixFeatherWing(HT16K33):
         Returns:
             The instance (self)
         """
-        # Bail on incorrect row numbers or character values
-        assert 0 <= ascii_value < 128, "ERROR - Invalid ascii code set in set_character()"
+        assert 0 <= number < 10, "ERROR - Invalid ascii code set in set_character()"
         assert 0 <= column < self.width, "ERROR - Invalid column number set in set_icon()"
-        
-        glyph = None
-        if ascii_value < 32:
-            # A user-definable character has been chosen
-            glyph = self.def_chars[ascii_value]
-        else:
-            # A standard character has been chosen
-            ascii_value -= 32
-            if ascii_value < 0 or ascii_value >= len(self.CHARSET): ascii_value = 0
-            glyph = self.CHARSET[ascii_value]
+        glyph = self.CHARSET[number]
         return self.set_icon(glyph, column)
-
-    def scroll_text(self, the_line, speed=0.1):
-        """
-        Scroll the specified line of text leftwards across the display.
-
-        Args:
-            the_line (string) The string to display
-            speed (float)     The delay between frames
-        """
-        # Import the time library as we use time.sleep() here
-        import time
-
-        # Bail on zero string length
-        assert len(the_line) > 0, "ERROR - Invalid string set in scroll_text()"
-
-        # Calculate the source buffer size
-        length = 0
-        for i in range(len(the_line)):
-            asc_val = ord(the_line[i])
-            if asc_val < 32:
-                glyph = self.def_chars[asc_val]
-            else:
-                glyph = self.CHARSET[asc_val - 32]
-            length += len(glyph)
-            if asc_val > 32: length += 1
-        src_buffer = bytearray(length)
-
-        # Draw the string to the source buffer
-        row = 0
-        for i in range(len(the_line)):
-            asc_val = ord(the_line[i])
-            if asc_val < 32:
-                glyph = self.def_chars[asc_val]
-            else:
-                glyph = self.CHARSET[asc_val - 32]
-            for j in range(len(glyph)):
-                src_buffer[row] = glyph[j] if self.is_inverse is False else ((~ glyph[j]) & 0xFF)
-                row += 1
-            if asc_val > 32: row += 1
-        assert row == length, "ERROR - Mismatched lengths in scroll_text()"
-
-        # Finally, a the line
-        cursor = 0
-        while True:
-            a = cursor
-            for i in range(self.width):
-                self.buffer[self._get_row(i)] = src_buffer[a];
-                a += 1
-            self.draw()
-            cursor += 1
-            if cursor > length - self.width: break
-            time.sleep(speed)
-
-    def define_character(self, glyph, char_code=0):
-        """
-        Set a user-definable character.
-
-        Args:
-            glyph (bytearray) The glyph pattern.
-            char_code (int)   The character’s ID code (0-31). Default: 0
-
-        Returns:
-            The instance (self)
-        """
-        # Bail on incorrect row numbers or character values
-        assert 0 < len(glyph) < self.width * 2, "ERROR - Invalid glyph set in define_character()"
-        assert 0 <= char_code < 32, "ERROR - Invalid character code set in define_character()"
-        
-        self.def_chars[char_code] = glyph
-        return self
 
     def plot(self, x, y, ink=1, xor=False):
         """
@@ -422,9 +251,8 @@ class HT16K33MatrixFeatherWing(HT16K33):
         Returns:
             The instance (self)
         """
-        # Bail on incorrect row numbers or character values
+        # Check argument range and value
         assert (0 <= x < self.width) and (0 <= y < self.height), "ERROR - Invalid coordinate set in plot()"
-        
         if ink not in (0, 1): ink = 1
         x2 = self._get_row(x)
         if ink == 1:
@@ -450,9 +278,8 @@ class HT16K33MatrixFeatherWing(HT16K33):
         Returns:
             Whether the
         """
-        # Bail on incorrect row numbers or character values
+        # Check argument range and value
         assert (0 <= x < self.width) and (0 <= y < self.height), "ERROR - Invalid coordinate set in is_set()"
-        
         x = self._get_row(x)
         bit = (self.buffer[x] >> y) & 1
         return True if bit > 0 else False
@@ -560,31 +387,39 @@ def get_time(timeout=10):
     log("Getting time")
     ntp_query = bytearray(48)
     ntp_query[0] = 0x1b
-    address = socket.getaddrinfo("pool.ntp.org", 123)[0][-1]
-    # Create DGRAM UDP socket
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.settimeout(timeout)
+    err = 1
     return_value = None
-    err = 0
+    sock = None
     try:
-        err = 1
+        log("Getting NTP address ")
+        address = socket.getaddrinfo("pool.ntp.org", 123)[0][-1]
+
+        # Create DGRAM UDP socket
+        err = 2
+        log("Getting NTP socket ")
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(timeout)
+
+        err = 3
         log("Getting NTP data ")
         _ = sock.sendto(ntp_query, address)
-        err = 2
+
+        err = 4
         msg = sock.recv(48)
+
+        err = 5
         log("Got NTP data ")
-        err = 3
         val = struct.unpack("!I", msg[40:44])[0]
         return_value = val - 3155673600
     except:
         log_error("Could not set NTP", err)
-    sock.close()
+    if sock: sock.close()
     return return_value
 
 
 def set_rtc(timeout=10):
     now_time = get_time(timeout)
-    if now_time is not None:
+    if now_time:
         time_data = localtime(now_time)
         time_data = time_data[0:3] + (0,) + time_data[3:6] + (0,)
         RTC().datetime(time_data)
@@ -593,6 +428,7 @@ def set_rtc(timeout=10):
     log_error("RTC not set")
     return False
 
+# ********** PREFERENCES FUNCTIONS **********
 
 def load_prefs():
     file_data = None
@@ -610,7 +446,6 @@ def load_prefs():
         except ValueError:
             log_error("Prefs JSON decode error")
 
-# ********** PREFERENCES FUNCTIONS **********
 
 def set_prefs(prefs_data):
     '''
@@ -623,7 +458,7 @@ def set_prefs(prefs_data):
     if "bright" in prefs_data: prefs["bright"] = prefs_data["bright"]
     if "on" in prefs_data: prefs["on"] = prefs_data["on"]
     if "do_log" in prefs_data: prefs["do_log"] = prefs_data["do_log"]
-    
+
 
 def default_prefs():
     '''
@@ -639,7 +474,7 @@ def default_prefs():
     prefs["on"] = True
     prefs["url"] = "@AGENT"
     prefs["do_log"] = True
-    
+
 # ********** NETWORK FUNCTIONS **********
 
 def connect():
@@ -670,6 +505,7 @@ def connect():
             state = not state
             con_count += 1
             if con_count > 120:
+                matrix.plot(15, 0, False).draw()
                 log("Unable to connect in 60s")
                 return
     log("Connected")
@@ -747,7 +583,7 @@ def clock(timecheck=False):
 
         # Reset the 'do check' flag every other hour
         if now_hour % 6 > 0: timecheck = False
-
+        
         sleep(0.03)
 
 # ********** LOGGING FUNCTIONS **********

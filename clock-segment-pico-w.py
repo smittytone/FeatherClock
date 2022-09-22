@@ -540,9 +540,10 @@ def connect():
             state = not state
             con_count += 1
             if con_count > 120:
-                matrix.set_glyph(glyph, 3, true).draw()
+                matrix.set_glyph(glyph, 3, True).draw()
                 log("Unable to connect in 60s")
                 return
+    matrix.set_glyph(glyph, 3, False).draw()
     log("Connected")
 
 

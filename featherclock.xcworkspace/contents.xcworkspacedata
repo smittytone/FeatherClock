@@ -29,7 +29,7 @@
          location = "group:install.sh">
       </FileRef>
       <FileRef
-         location = "group:experimental/clock-segment-rp2040.py">
+         location = "group:clock-segment-rp2040.py">
       </FileRef>
    </Group>
 </Workspace>

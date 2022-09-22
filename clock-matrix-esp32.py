@@ -669,8 +669,8 @@ def connect():
             matrix.plot(15, 0, ink).draw()
             state = not state
             con_count += 1
-            if con_count > 60:
-                log("Breaking of connect cycle after 60s")
+            if con_count > 120:
+                log("Unable to connect in 60s")
                 return
     log("Connected")
 
@@ -684,15 +684,6 @@ def initial_connect():
     # Clear the display and start the clock loop
     matrix.clear()
     clock(timecheck)
-
-
-def bcd(bin_value):
-    for i in range(0, 8):
-        bin_value = bin_value << 1
-        if i == 7: break
-        if (bin_value & 0xF00) > 0x4FF: bin_value += 0x300
-        if (bin_value & 0xF000) > 0x4FFF: bin_value += 0x3000
-    return (bin_value >> 8) & 0xFF
 
 # ********** CLOCK FUNCTIONS **********
 
@@ -759,12 +750,6 @@ def clock(timecheck=False):
 
         sleep(0.03)
 
-
-def set_digit(value, posn):
-    glyph = matrix.CHARSET[value]
-    matrix.set_icon(glyph, posn)
-    return posn + len(glyph) + 1
-
 # ********** LOGGING FUNCTIONS **********
 
 def log_error(msg, error_code=0):
@@ -774,15 +759,21 @@ def log_error(msg, error_code=0):
     if error_code > 0:
         msg = "[ERROR] {} ({})".format(msg, error_code)
     else:
-        msg = "[ERROR] {}".format(msg) 
+        msg = "[ERROR] {}".format(msg)
     log(msg)
 
 
 def log_debug(msg):
+    '''
+    Log a debug message
+    '''
     log("[DEBUG] {}".format(msg))
 
 
 def log(msg):
+    '''
+    Log a generic message
+    '''
     now = localtime()
     with open(log_path, "a") as file:
         file.write("{}-{}-{} {}:{}:{} {}\n".format(now[0], now[1], now[2], now[3], now[4], now[5], msg))
@@ -800,6 +791,21 @@ def sync_text():
     matrix.set_icon(sync, 0)
     matrix.draw()
 
+
+def bcd(bin_value):
+    for i in range(0, 8):
+        bin_value = bin_value << 1
+        if i == 7: break
+        if (bin_value & 0xF00) > 0x4FF: bin_value += 0x300
+        if (bin_value & 0xF000) > 0x4FFF: bin_value += 0x3000
+    return (bin_value >> 8) & 0xFF
+
+
+def set_digit(value, posn):
+    glyph = matrix.CHARSET[value]
+    matrix.set_icon(glyph, posn)
+    return posn + len(glyph) + 1
+
 # ********** RUNTIME START **********
 
 if __name__ == '__main__':
@@ -814,11 +820,6 @@ if __name__ == '__main__':
     matrix = HT16K33MatrixFeatherWing(i2c)
     matrix.set_brightness(prefs["bright"])
 
-    # Display 'sync' on the display while connecting,
-    # and attempt to connect
-    sync_text()
-
-    # FROM 1.1.1
     # Add logging
     if prefs["do_log"]:
         try:
@@ -828,5 +829,7 @@ if __name__ == '__main__':
             with open(log_path, "w") as file:
                 file.write("FeatherCLock Log\n")
 
-    # Make the connection
+    # Display 'sync' on the display while connecting,
+    # and attempt to connect
+    sync_text()
     initial_connect()

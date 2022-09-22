@@ -8,22 +8,16 @@
       location = "container:clock-segment-esp32.py">
    </FileRef>
    <FileRef
-      location = "container:clock-matrix-esp8266.py">
-   </FileRef>
-   <FileRef
-      location = "container:clock-segment-esp8266.py">
-   </FileRef>
-   <FileRef
       location = "container:clock-segment-pico-w.py">
    </FileRef>
    <FileRef
-      location = "group:install.sh">
+      location = "container:install.sh">
    </FileRef>
    <FileRef
-      location = "group:prefs.json">
+      location = "container:prefs.json">
    </FileRef>
    <FileRef
-      location = "group:README.md">
+      location = "container:README.md">
    </FileRef>
    <Group
       location = "group:experimental"
@@ -35,7 +29,7 @@
          location = "group:install.sh">
       </FileRef>
       <FileRef
-         location = "container:experimental/clock-segment-rp2040.py">
+         location = "group:experimental/clock-segment-rp2040.py">
       </FileRef>
    </Group>
 </Workspace>

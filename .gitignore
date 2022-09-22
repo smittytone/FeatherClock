@@ -114,6 +114,6 @@ dmypy.json
 .pyre/
 
 # Mine
-*.xcworkspace/xcuserdata/*
+*.xcworkspace/xcuserdata/
 log.txt
 

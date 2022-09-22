@@ -539,9 +539,10 @@ def connect():
             matrix.set_glyph(glyph, 3, state).draw()
             state = not state
             con_count += 1
-            if con_count > 40:
+            if con_count > 120:
                 matrix.set_glyph(glyph, 3, false).draw()
-                break
+                log("Unable to connect in 60s")
+                return
     log("Connected")
 
 
@@ -554,15 +555,6 @@ def initial_connect():
     # Clear the display and start the clock loop
     matrix.clear()
     clock(timecheck)
-
-
-def bcd(bin_value):
-    for i in range(0, 8):
-        bin_value = bin_value << 1
-        if i == 7: break
-        if (bin_value & 0xF00) > 0x4FF: bin_value += 0x300
-        if (bin_value & 0xF000) > 0x4FFF: bin_value += 0x3000
-    return (bin_value >> 8) & 0xFF
 
 # ********** CLOCK FUNCTIONS **********
 
@@ -642,10 +634,16 @@ def log_error(msg, error_code=0):
 
 
 def log_debug(msg):
+    '''
+    Log a debug message
+    '''
     log("[DEBUG] {}".format(msg))
 
 
 def log(msg):
+    '''
+    Log a generic message
+    '''
     now = localtime()
     with open(log_path, "a") as file:
         file.write("{}-{}-{} {}:{}:{} {}\n".format(now[0], now[1], now[2], now[3], now[4], now[5], msg))
@@ -663,6 +661,15 @@ def sync_text():
     for i in range(0, 4): matrix.set_glyph(sync[i], i)
     matrix.draw()
 
+
+def bcd(bin_value):
+    for i in range(0, 8):
+        bin_value = bin_value << 1
+        if i == 7: break
+        if (bin_value & 0xF00) > 0x4FF: bin_value += 0x300
+        if (bin_value & 0xF000) > 0x4FFF: bin_value += 0x3000
+    return (bin_value >> 8) & 0xFF
+    
 # ********** RUNTIME START **********
 
 if __name__ == '__main__':

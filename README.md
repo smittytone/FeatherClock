@@ -1,16 +1,20 @@
 # FeatherClock 1.3.0 #
 
-This repo contains code written for the [Adafruit Feather HUZZAH ESP8266](https://www.adafruit.com/product/2821), the [Adafruit Feather HUZZAH ESP32](https://www.adafruit.com/product/3405) and the [Raspberry Pi Pico W](), all running [MicroPython](http://micropython.org/).
+This repo contains code written for the [Adafruit Feather HUZZAH ESP32](https://www.adafruit.com/product/3405) and the [Raspberry Pi Pico W](), all running [MicroPython](http://micropython.org/).
 
 It is an attempt to replicate my [Electric Imp clock project](https://github.com/smittytone/Clock). It uses the [Adafruit FeatherWing](https://learn.adafruit.com/adafruit-7-segment-led-featherwings/overview) four-digit, seven-segment LED add-on, or any other HT16K33-based segment LED for that matter.
 
 Currently, the clock has no remote control, which the Electric Imp Platform makes very easy to implement, but is rather less so here. You can [set preferences](#clock-settings), though. Adding a web UI, served locally or remotely, lies in a future phase of the project.
 
+#### Archive ####
+
+I previously supported the [Adafruit Feather HUZZAH ESP8266](https://www.adafruit.com/product/2821), but this is no longer the case: its RTC is poor and it has too little memory. If you are using this board, you can find the code in the [`archive`](/archive) directory.
+
 ### Installation ###
 
 #### Pre-requisites ####
 
-*For ESP32/2866 boards*
+*For ESP32 boards*
 
 1. Install `pyboard.py` from [GitHub](https://github.com/micropython/micropython/blob/master/tools/pyboard.py).
 1. Install `esptool.py` using `brew install esptool`
@@ -26,7 +30,7 @@ Currently, the clock has no remote control, which the Electric Imp Platform make
 
 #### App Installation ####
 
-*For ESP32/2866 boards*
+*For ESP32 boards*
 
 1. Connect your assembled FeatherClock (Feather plus LED add-on).
 1. Run `ls /dev/cu*`
@@ -34,13 +38,10 @@ Currently, the clock has no remote control, which the Electric Imp Platform make
 1. Update MicroPython:
     * For ESP32:
         1. `esptool.py --chip esp32 --port <FEATHER_DEVICE_PATH> erase_flash`
-        1. `esptool.py --chip esp32 --port <FEATHER_DEVICE_PATH> --baud 460800 write_flash -z 0x1000 esp32-20210902-v1.17.bin`
-    * For ESP8266:
-        1. `esptool.py --port <FEATHER_DEVICE_PATH> erase_flash`
-        1. `esptool.py --port <FEATHER_DEVICE_PATH> --baud 460800 write_flash --flash_size=detect 0 esp8266-20210902-v1.17.bin`
+        1. `esptool.py --chip esp32 --port <FEATHER_DEVICE_PATH> --baud 460800 write_flash -z 0x1000 esp32-20220618-v1.19.1.bin`
 1. `cd featherclock`
 1. Run `./install.sh <FEATHER_DEVICE_PATH>`
-1. Press `3` for an ESP32 device, or `2` key for ESP8266.
+1. Press `3` for an ESP32 device.
 1. Enter your WiFi SSID.
 1. Enter your WiFi password.
 1. After the code has copied, power-cycle your FeatherClock or press the **RESET** button.
@@ -52,7 +53,7 @@ Currently, the clock has no remote control, which the Electric Imp Platform make
     1. Note the Pico’s device file path.
 1. `cd featherclock`
 1. Run `./install.sh <FEATHER_DEVICE_PATH>`
-1. Press `w` for a Pico W.
+1. Press `W` for a Pico W.
 1. Enter your WiFi SSID.
 1. Enter your WiFi password.
 1. After the code has copied, power-cycle your FeatherClock.
@@ -94,6 +95,7 @@ pyboard.py -d $(dlist) -f cp prefs.json :prefs.json
     - Better resilience to WiFi connection loss.
     - Better log file management.
     - Update to latest HT16K33 drivers.
+    - Archive ESP8266 version.
 - 1.2.3 *23 February 2022*
     - Better help in `install.sh`
     - Device-side errors now issued to log file.

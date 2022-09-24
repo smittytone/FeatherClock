@@ -15,7 +15,7 @@ import ujson as json
 import network
 from micropython import const
 from machine import I2C, Pin, RTC
-from utime import localtime, sleep
+from utime import gmtime, sleep
 
 # ********** GLOBALS **********
 
@@ -360,7 +360,7 @@ def bst_check(now=None):
     Returns:
         bool: Whether the specified date is within the BST period (true), or not (false).
     '''
-    if now is None: now = localtime()
+    if now is None: now = gmtime()
 
     if now[1] > 3 and now[1] < 10: return True
 
@@ -456,7 +456,7 @@ def get_time(timeout=10):
 def set_rtc(timeout=10):
     now_time = get_time(timeout)
     if now_time:
-        time_data = localtime(now_time)
+        time_data = gmtime(now_time)
         time_data = time_data[0:3] + (0,) + time_data[3:6] + (0,)
         RTC().datetime(time_data)
         log("RTC set")
@@ -571,14 +571,14 @@ def clock(timecheck=False):
     mode = prefs["mode"]
 
     while True:
-        now = localtime()
+        now = gmtime()
         now_hour = now[3]
         now_min = now[4]
         now_sec = now[5]
 
         if prefs["bst"] is True and is_bst() is True:
             now_hour += 1
-        if now_hour > 23: now_hour -= 23
+        if now_hour > 23: now_hour -= 24
 
         is_pm = False
         if now_hour > 11: is_pm = True
@@ -644,7 +644,7 @@ def log(msg):
     '''
     Log a generic message
     '''
-    now = localtime()
+    now = gmtime()
     with open(log_path, "a") as file:
         file.write("{}-{}-{} {}:{}:{} {}\n".format(now[0], now[1], now[2], now[3], now[4], now[5], msg))
 

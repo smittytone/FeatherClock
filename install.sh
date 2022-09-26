@@ -15,24 +15,21 @@ if [[ -z "$dev" ]]; then
     fi
 
     if [[ -z "$dev" ]]; then
-        echo "Usage:"
-        echo "  ./install.sh /path/to/device"
+        echo "Usage: ./install.sh /path/to/device"
         echo "Optional: place /path/to/device in the file 'device' in this directory"
         exit 1
     fi
 fi
 
-# Check that ampy is installed
-# command -v ampy >/dev/null || { echo "Error -- ampy not installed (see https://github.com/scientifichackers/ampy)"; exit 1; }
-
 # Check that pyboard is installed
-command -v pyboard.py >/dev/null || {
-    command -v pyboard >/dev/null || {
-        echo "[ERROR] pyboard.py not installed (see https://docs.micropython.org/en/latest/reference/pyboard.py.html)"; exit 1;
-    }
-}
+if ! which pyboard.py > /dev/null; then
+    if ! which pyboard > /dev/null; then
+        echo "[ERROR] pyboard.py not installed (see https://docs.micropython.org/en/latest/reference/pyboard.py.html)"
+        exit 1
+    fi
+fi
 
-# Make sure the Feather is connected befo re proceeding
+# Make sure the Feather is connected before proceeding
 if [[ ! -e "$dev" ]]; then
     echo "[ERROR] Feather or Pico W is not connected to USB"
     exit 1

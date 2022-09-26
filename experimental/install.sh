@@ -23,15 +23,13 @@ if [[ -z "$dev" ]]; then
     fi
 fi
 
-# Check that ampy is installed
-# command -v ampy >/dev/null || { echo "Error -- ampy not installed (see https://github.com/scientifichackers/ampy)"; exit 1; }
-
 # Check that pyboard is installed
-command -v pyboard.py >/dev/null || {
-    command -v pyboard >/dev/null || {
-        echo "[ERROR] pyboard.py not installed (see https://docs.micropython.org/en/latest/reference/pyboard.py.html)"; exit 1;
-    }
-}
+if ! which pyboard.py > /dev/null; then
+    if ! which pyboard > /dev/null; then
+        echo "[ERROR] pyboard.py not installed (see https://docs.micropython.org/en/latest/reference/pyboard.py.html)"
+        exit 1
+    fi
+fi
 
 # Make sure the Feather is connected befo re proceeding
 if [[ ! -e "$dev" ]]; then
@@ -39,7 +37,7 @@ if [[ ! -e "$dev" ]]; then
     exit 1
 fi
 
-chip="rp2040"
+chip="trinkey-rp2040"
 dtype="segment"
 echo "Copying \"clock-${dtype}-${chip}.py\" to device \"$dev\"..."
 
@@ -52,8 +50,10 @@ if [[ -e prefs.json ]]; then
 fi
 
 # Copy log file then zap the device's one
-if pyboard -d $dev -f cp :log.txt log.txt; then
+if pyboard -d $dev -f cp :log.txt log.txt > /dev/null; then
     pyboard -d $dev -f rm :log.txt
+else
+    echo "Could not copy log.txt from the device"
 fi
 
 # Copy the 'compiled' code

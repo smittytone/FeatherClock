@@ -20,16 +20,16 @@
       location = "container:README.md">
    </FileRef>
    <Group
-      location = "group:experimental"
+      location = "container:experimental"
       name = "experimental">
       <FileRef
-         location = "group:prefs.json">
+         location = "container:prefs.json">
       </FileRef>
       <FileRef
-         location = "group:install.sh">
+         location = "container:install.sh">
       </FileRef>
       <FileRef
-         location = "group:clock-segment-rp2040.py">
+         location = "container:/Users/tsmith/GitHub/featherclock/experimental/clock-segment-trinkey-rp2040.py">
       </FileRef>
    </Group>
 </Workspace>

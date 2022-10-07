@@ -38,7 +38,7 @@ if [[ ! -e "$dev" ]]; then
 fi
 
 chip="trinkey-rp2040"
-dtype="segment"
+dtype="oled"
 echo "Copying \"clock-${dtype}-${chip}.py\" to device \"$dev\"..."
 
 # Copy prefs.json if present if the current dir

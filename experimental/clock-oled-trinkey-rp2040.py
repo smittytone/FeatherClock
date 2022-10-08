@@ -57,18 +57,6 @@ class SSD1306OLED:
     SSD1306_SETPRECHARGE = 0xD9
     SSD1306_SETCOMPINS = 0xDA
     SSD1306_SETVCOMDETECT = 0xDB
-    #SSD1306_SETLOWCOLUMN = 0x00
-    #SSD1306_EXTERNALVCC = 0x01
-    #SSD1306_SWITCHCAPVCC = 0x02
-    #SSD1306_SETHIGHCOLUMN = 0x10
-    #SSD1306_RIGHT_HORIZONTAL_SCROLL = 0x26
-    #SSD1306_LEFT_HORIZONTAL_SCROLL = 0x27
-    #SSD1306_VERTICAL_AND_RIGHT_HORIZONTAL_SCROLL = 0x29
-    #SSD1306_VERTICAL_AND_LEFT_HORIZONTAL_SCROLL = 0x2A
-    #SSD1306_DEACTIVATE_SCROLL = 0x2E
-    #SSD1306_ACTIVATE_SCROLL = 0x2F
-    #SSD1306_SET_VERTICAL_SCROLL_AREA = 0xA3
-    #SSD1306_COMSCANINC = 0xC0
 
     CHARSET = [
         b"\x00\x00",                # space - Ascii 32
@@ -172,7 +160,7 @@ b"\x7F\xBF\xDF\xEF\xF0\xF0\xF0\xF0\xF0\xF0\xF0\xF0\xEF\xDF\xBF\x7F\xE0\xE0\xC0\x
 
     # *********** CONSTRUCTOR **********
 
-    def __init__(self, reset_pin, i2c, address=0x3C, width=128, height=32):
+    def __init__(self, i2c, address=0x3C, width=128, height=32):
         assert 0x00 <= address < 0x80, "ERROR - Invalid I2C address in HT16K33()"
 
         # Just in case it hasn't been imported by the caller
@@ -196,11 +184,12 @@ b"\x7F\xBF\xDF\xEF\xF0\xF0\xF0\xF0\xF0\xF0\xF0\xF0\xEF\xDF\xBF\x7F\xE0\xE0\xC0\x
         self.buffer = bytearray(width * int(height / 8))
 
         # Toggle the RST pin over 1ms + 10ms
-        self._set_rst()
-        time.sleep(0.001)
-        self._set_rst(False)
-        time.sleep(0.01)
-        self._set_rst()
+        #self._set_rst()
+        #time.sleep(0.001)
+        #self._set_rst(False)
+        #time.sleep(0.01)
+        #self._set_rst()
+        time.sleep(0.02)
 
         # Write the display settings
         self.i2c.writeto(self.address, bytes([0x00, self.SSD1306_DISPLAYOFF]))
@@ -615,7 +604,7 @@ b"\x7F\xBF\xDF\xEF\xF0\xF0\xF0\xF0\xF0\xF0\xF0\xF0\xEF\xDF\xBF\x7F\xE0\xE0\xC0\x
                 self.rst.off()
         else:
             self.rst.value = is_on
-    
+
     def draw_bitmap(self, x, y, width, colour, length, bitmap):
         # Paint the specific monochrome bitmap to the screen
         # with (x,y) the top-left co-ordinate. Zeros in the bit map are the
@@ -760,11 +749,11 @@ def is_leap_year(year):
 
 def set_rtc(epoch_val):
     global yrdy
-    
+
     time_data = localtime(epoch_val)
     yrdy = time_data[7]
     # Tuple format: (year, month, mday, hour, minute, second, weekday, yearday)
-    
+
     time_data = time_data[0:3] + (0,) + time_data[3:6] + (0,)
     # Tuple format: (year, month, day, weekday, hours, minutes, seconds)
     RTC().datetime(time_data)
@@ -842,7 +831,7 @@ def clock(timecheck=False):
          savings calculation.
     '''
     global prefs
-    
+
     mode = prefs["mode"]
 
     while True:
@@ -894,13 +883,9 @@ def clock(timecheck=False):
 
         # Set the colon and present the display
         if prefs["colon"]:
-            if prefs["flash"] and now_sec % 2 != 0:
-                pass
-            else:
-                #matrix.move(62,8).text_2x(":")
-                matrix.rect(60, 7, 8, 8, 1, True)
-                matrix.rect(60, 23, 8, 8, 1, True)
-        
+            matrix.rect(60, 7, 8, 8, 1, True)
+            matrix.rect(60, 23, 8, 8, 1, True)
+
         if show_time_button.value() == 0:
             matrix.draw()
         else:
@@ -959,12 +944,17 @@ if __name__ == '__main__':
 
     # Load non-default prefs, if any
     load_prefs()
-    
+
     # We're not using a matrix, but use the term for code consistency
-    i2c = I2C(0, scl=Pin(17), sda=Pin(16))
-    reset = Pin(19, Pin.OUT) # Raspberry Pi Pico
-    matrix = SSD1306OLED(reset, i2c)
-    
+    # Set up I2C
+    i2c = busio.I2C(board.SCL, board.SDA)
+    while not i2c.try_lock():
+        pass
+
+    #i2c = I2C(0, scl=Pin(17), sda=Pin(16))
+    #reset = Pin(19, Pin.OUT)
+    matrix = SSD1306OLED(i2c)
+
     # Config the button -- this will be pressed to show the time
     show_time_button = Pin(12, Pin.IN, Pin.PULL_UP)
 

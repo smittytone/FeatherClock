@@ -9,11 +9,12 @@ Licence:   MIT
 
 # ********** IMPORTS **********
 
-import ustruct as struct
-import ujson as json
-from micropython import const
-from machine import I2C, Pin, RTC
-from utime import localtime, sleep, mktime
+import json
+import board
+import busio
+from digitalio import DigitalInOut, Direction, Pull
+from rtc import RTC
+from time import localtime, sleep, mktime, struct_time
 
 # ********** GLOBALS **********
 
@@ -176,7 +177,7 @@ b"\x7F\xBF\xDF\xEF\xF0\xF0\xF0\xF0\xF0\xF0\xF0\xF0\xEF\xDF\xBF\x7F\xE0\xE0\xC0\x
         # Set up instance properties
         self.i2c = i2c
         self.address = address
-        self.rst = reset_pin
+        #self.rst = reset_pin
         self.width = width
         self.height = height
         self.x = 0
@@ -284,7 +285,7 @@ b"\x7F\xBF\xDF\xEF\xF0\xF0\xF0\xF0\xF0\xF0\xF0\xF0\xEF\xDF\xBF\x7F\xE0\xE0\xC0\x
 
     def line(self, x, y, tox, toy, thick=1, colour=1):
         """
-        Draw a line between the specified co-ordnates
+        Draw a line between the specified co-ordinates
 
         Args:
             x      (int) The start X co-ordinate in the range 0 - 127
@@ -754,9 +755,9 @@ def set_rtc(epoch_val):
     yrdy = time_data[7]
     # Tuple format: (year, month, mday, hour, minute, second, weekday, yearday)
 
-    time_data = time_data[0:3] + (0,) + time_data[3:6] + (0,)
+    #time_data = time_data[0:3] + (0,) + time_data[3:6] + (0,)
     # Tuple format: (year, month, day, weekday, hours, minutes, seconds)
-    RTC().datetime(time_data)
+    RTC().datetime = struct_time(time_data)
     log("RTC set")
 
 # ********** PREFS MANAGEMENT FUNCTIONS **********
@@ -886,18 +887,18 @@ def clock(timecheck=False):
             matrix.rect(60, 7, 8, 8, 1, True)
             matrix.rect(60, 23, 8, 8, 1, True)
 
-        if show_time_button.value() == 0:
+        if show_time_button.value == False:
             matrix.draw()
         else:
             matrix.clear().draw()
 
         # Every hour dump the RTC in case of resets
         if (1 < now_min < 10) and timecheck is False:
-            rtc_time = RTC().datetime()
+            rtc_time = time.localtime()
             # Tuple format: (year, month, day, weekday, hours, minutes, seconds)
-            py_time = rtc_time[0:3] + rtc_time[4:7] + (rtc_time[3], yrdy,)
+            #py_time = rtc_time[0:3] + rtc_time[4:7] + (rtc_time[3], yrdy,)
             # Tuple format: (year, month, mday, hour, minute, second, weekday, yearday)
-            prefs["epoch"] = mktime(py_time)
+            prefs["epoch"] = mktime(rtc_time)
             save_prefs()
             timecheck = True
 
@@ -923,8 +924,8 @@ def log_debug(msg):
 
 def log(msg):
     now = localtime()
-    with open("log.txt", "a") as file:
-        file.write("{}-{}-{} {}:{}:{} {}\n".format(now[0], now[1], now[2], now[3], now[4], now[5], msg))
+    #with open("log.txt", "a") as file:
+    #   file.write("{}-{}-{} {}:{}:{} {}\n".format(now[0], now[1], now[2], now[3], now[4], now[5], msg))
 
 # ********** MISC FUNCTIONS **********
 
@@ -956,7 +957,9 @@ if __name__ == '__main__':
     matrix = SSD1306OLED(i2c)
 
     # Config the button -- this will be pressed to show the time
-    show_time_button = Pin(12, Pin.IN, Pin.PULL_UP)
+    show_time_button = DigitalInOut(board.BUTTON)
+    show_time_button.direction = Direction.INPUT
+    show_time_button.pull = Pull.UP #Pin(12, Pin.IN, Pin.PULL_UP)
 
     # Clear the display and start the clock loop
     matrix.clear().draw()

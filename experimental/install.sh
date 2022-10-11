@@ -52,5 +52,8 @@ fi
 
 # Copy the 'compiled' code
 cp -f "clock-${dtype}-${chip}.py" "${dev}/code.py"
+if [[ ! -e "${dev}/boot.py" ]]; then
+    cp boot.py "${dev}/boot.py"
+fi
 
 echo "Code copied. Press RESET or power cycle, to run the code."

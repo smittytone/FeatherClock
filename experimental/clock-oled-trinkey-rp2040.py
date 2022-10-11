@@ -1,5 +1,7 @@
 '''
-Clock Segment RP2040 - a very simple four-digit timepiece
+Clock RP2040 Oled
+
+A very simple four-digit timepiece
 
 Version:   1.3.0
 Author:    smittytone
@@ -20,6 +22,7 @@ from time import localtime, sleep, mktime, struct_time
 
 prefs = None
 yrdy = 0
+display_present = False
 
 # ********** CLASSES **********
 
@@ -164,9 +167,6 @@ b"\x7F\xBF\xDF\xEF\xF0\xF0\xF0\xF0\xF0\xF0\xF0\xF0\xEF\xDF\xBF\x7F\xE0\xE0\xC0\x
     def __init__(self, i2c, address=0x3C, width=128, height=32):
         assert 0x00 <= address < 0x80, "ERROR - Invalid I2C address in HT16K33()"
 
-        # Just in case it hasn't been imported by the caller
-        import time
-
         # Determine whether we're on MicroPython or CircuitPython
         try:
             import machine
@@ -177,19 +177,13 @@ b"\x7F\xBF\xDF\xEF\xF0\xF0\xF0\xF0\xF0\xF0\xF0\xF0\xEF\xDF\xBF\x7F\xE0\xE0\xC0\x
         # Set up instance properties
         self.i2c = i2c
         self.address = address
-        #self.rst = reset_pin
         self.width = width
         self.height = height
         self.x = 0
         self.y = 0
         self.buffer = bytearray(width * int(height / 8))
-
-        # Toggle the RST pin over 1ms + 10ms
-        #self._set_rst()
-        #time.sleep(0.001)
-        #self._set_rst(False)
-        #time.sleep(0.01)
-        #self._set_rst()
+        
+        # Display wake-up time
         time.sleep(0.02)
 
         # Write the display settings
@@ -591,21 +585,6 @@ b"\x7F\xBF\xDF\xEF\xF0\xF0\xF0\xF0\xF0\xF0\xF0\xF0\xEF\xDF\xBF\x7F\xE0\xE0\xC0\x
         x = x | x << 1
         return x
 
-    def _set_rst(self, is_on=True):
-        """
-        Select GPIO pin setting mechanism by Python type.
-
-        Args:
-            is_on (Bool) Are we toggling RST on?
-        """
-        if self.is_micropython:
-            if is_on:
-                self.rst.on()
-            else:
-                self.rst.off()
-        else:
-            self.rst.value = is_on
-
     def draw_bitmap(self, x, y, width, colour, length, bitmap):
         # Paint the specific monochrome bitmap to the screen
         # with (x,y) the top-left co-ordinate. Zeros in the bit map are the
@@ -798,12 +777,14 @@ def save_prefs():
     Write the current prefs to Flash.
     '''
     global prefs
-    try:
-        json_prefs = json.dumps(prefs)
-        with open("prefs.json", "w") as file:
-            file.write(json_prefs)
-    except:
-        log_error("Prefs JSON save error")
+
+    if display_present:
+        try:
+            json_prefs = json.dumps(prefs)
+            with open("prefs.json", "w") as file:
+                file.write(json_prefs)
+        except:
+            log_error("Prefs JSON save error")
 
 
 def default_prefs():
@@ -859,51 +840,53 @@ def clock(timecheck=False):
         # (lit if the clock is disconnected)
         decimal = bcd(hour)
         n = 0
-        if mode is False and hour < 10:
-            n = SSD1306OLED.NUMBERS[0]
-        else:
-            n = SSD1306OLED.NUMBERS[decimal >> 4]
-        matrix.draw_bitmap(8, 7, 16, 1, len(n), n)
-        n = SSD1306OLED.NUMBERS[decimal & 0x0F]
-        matrix.draw_bitmap(32, 7, 16, 1, len(n), n)
-
-        # Display the minute
-        # The decimal point by the last digit is used to indicate AM/PM,
-        # but only for the 12-hour clock mode (mode == False)
-        decimal = bcd(now_min)
-        n = SSD1306OLED.NUMBERS[decimal >> 4]
-        matrix.draw_bitmap(79, 7, 16, 1, len(n), n)
-        n = SSD1306OLED.NUMBERS[decimal & 0x0F]
-        matrix.draw_bitmap(103, 7, 16, 1, len(n), n)
-
-        if mode is False:
-            if is_pm:
-                matrix.move(122, 24).text("P")
+        if display_present:
+            if mode is False and hour < 10:
+                n = SSD1306OLED.NUMBERS[0]
             else:
-                matrix.move(122, 24).text("A")
+                n = SSD1306OLED.NUMBERS[decimal >> 4]
+        
+            matrix.draw_bitmap(8, 7, 16, 1, len(n), n)
+            n = SSD1306OLED.NUMBERS[decimal & 0x0F]
+            matrix.draw_bitmap(32, 7, 16, 1, len(n), n)
 
-        # Set the colon and present the display
-        if prefs["colon"]:
-            matrix.rect(60, 7, 8, 8, 1, True)
-            matrix.rect(60, 23, 8, 8, 1, True)
+            # Display the minute
+            # The decimal point by the last digit is used to indicate AM/PM,
+            # but only for the 12-hour clock mode (mode == False)
+            decimal = bcd(now_min)
+            n = SSD1306OLED.NUMBERS[decimal >> 4]
+            matrix.draw_bitmap(79, 7, 16, 1, len(n), n)
+            n = SSD1306OLED.NUMBERS[decimal & 0x0F]
+            matrix.draw_bitmap(103, 7, 16, 1, len(n), n)
 
-        if show_time_button.value == False:
-            matrix.draw()
-        else:
-            matrix.clear().draw()
+            if mode is False:
+                if is_pm:
+                    matrix.move(122, 24).text("P")
+                else:
+                    matrix.move(122, 24).text("A")
+
+            # Set the colon and present the display
+            if prefs["colon"]:
+                matrix.rect(60, 7, 8, 8, 1, True)
+                matrix.rect(60, 23, 8, 8, 1, True)
+
+            # Display the time if the BOOT button is pressed
+            if show_time_button.value == False:
+                matrix.draw()
+            else:
+                matrix.clear().draw()
 
         # Every hour dump the RTC in case of resets
         if (1 < now_min < 10) and timecheck is False:
-            rtc_time = time.localtime()
-            # Tuple format: (year, month, day, weekday, hours, minutes, seconds)
-            #py_time = rtc_time[0:3] + rtc_time[4:7] + (rtc_time[3], yrdy,)
-            # Tuple format: (year, month, mday, hour, minute, second, weekday, yearday)
-            prefs["epoch"] = mktime(rtc_time)
+            rtc_time = localtime()
+            prefs["epoch"] = int(mktime(rtc_time))
             save_prefs()
             timecheck = True
 
         # Reset the 'do check' flag every other hour
         if now_min > 10: timecheck = False
+
+        sleep(0.001)
 
 # ********** LOGGING FUNCTIONS **********
 
@@ -923,9 +906,10 @@ def log_debug(msg):
 
 
 def log(msg):
-    now = localtime()
-    #with open("log.txt", "a") as file:
-    #   file.write("{}-{}-{} {}:{}:{} {}\n".format(now[0], now[1], now[2], now[3], now[4], now[5], msg))
+    if display_present:
+        now = localtime()
+        with open("log.txt", "a") as file:
+            file.write("{}-{}-{} {}:{}:{} {}\n".format(now[0], now[1], now[2], now[3], now[4], now[5], msg))
 
 # ********** MISC FUNCTIONS **********
 
@@ -951,16 +935,23 @@ if __name__ == '__main__':
     i2c = busio.I2C(board.SCL, board.SDA)
     while not i2c.try_lock():
         pass
-
-    #i2c = I2C(0, scl=Pin(17), sda=Pin(16))
-    #reset = Pin(19, Pin.OUT)
-    matrix = SSD1306OLED(i2c)
+    
+    devices = i2c.scan()
+    display_present = False
+    if len(devices) > 0:
+        for device in devices:
+            if int(device) == 0x3C:
+                display_present = True
+                break
+    
+    if display_present:
+        matrix = SSD1306OLED(i2c)
+        matrix.clear().draw()
 
     # Config the button -- this will be pressed to show the time
     show_time_button = DigitalInOut(board.BUTTON)
     show_time_button.direction = Direction.INPUT
-    show_time_button.pull = Pull.UP #Pin(12, Pin.IN, Pin.PULL_UP)
+    show_time_button.pull = Pull.UP
 
-    # Clear the display and start the clock loop
-    matrix.clear().draw()
+    # Start the clock loop
     clock(False)

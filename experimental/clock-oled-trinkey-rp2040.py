@@ -1,5 +1,5 @@
 '''
-Clock RP2040 Oled
+Clock RP2040 OLED
 
 A very simple four-digit timepiece
 
@@ -732,10 +732,6 @@ def set_rtc(epoch_val):
 
     time_data = localtime(epoch_val)
     yrdy = time_data[7]
-    # Tuple format: (year, month, mday, hour, minute, second, weekday, yearday)
-
-    #time_data = time_data[0:3] + (0,) + time_data[3:6] + (0,)
-    # Tuple format: (year, month, day, weekday, hours, minutes, seconds)
     RTC().datetime = struct_time(time_data)
     log("RTC set")
 
@@ -764,6 +760,7 @@ def set_prefs(prefs_data):
     Set the clock's preferences to reflect the specified object's contents.
     '''
     global prefs
+
     if "mode" in prefs_data: prefs["mode"] = prefs_data["mode"]
     if "colon" in prefs_data: prefs["colon"] = prefs_data["colon"]
     if "flash" in prefs_data: prefs["flash"] = prefs_data["flash"]
@@ -792,6 +789,7 @@ def default_prefs():
     Set the clock's default preferences.
     '''
     global prefs
+    
     prefs = {}
     prefs["mode"] = True
     prefs["colon"] = True

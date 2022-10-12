@@ -1,5 +1,5 @@
 '''
-Clock RP2040 Oled
+Clock RP2040 OLED/Segment
 
 A very simple four-digit timepiece
 
@@ -25,7 +25,8 @@ while not i2c.try_lock():
 devices = i2c.scan()
 if len(devices) > 0:
     for device in devices:
-        if int(device) == 0x3C:
+        # Allow for both OLED and Segment displays
+        if int(device) in (0x3C, 0x70):
             display_present = True
             break
 

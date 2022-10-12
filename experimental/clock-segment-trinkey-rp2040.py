@@ -1,5 +1,7 @@
 '''
-Clock Segment RP2040 - a very simple four-digit timepiece
+Clock RP2040 Segment
+
+A very simple four-digit timepiece
 
 Version:   1.3.0
 Author:    smittytone
@@ -9,16 +11,18 @@ Licence:   MIT
 
 # ********** IMPORTS **********
 
-import ustruct as struct
-import ujson as json
-from micropython import const
-from machine import I2C, Pin, RTC
-from utime import localtime, sleep, mktime
+import json
+import board
+import busio
+from digitalio import DigitalInOut, Direction, Pull
+from rtc import RTC
+from time import localtime, sleep, mktime, struct_time
 
 # ********** GLOBALS **********
 
 prefs = None
 yrdy = 0
+display_present = False
 
 # ********** CLASSES **********
 
@@ -417,11 +421,7 @@ def set_rtc(epoch_val):
     
     time_data = localtime(epoch_val)
     yrdy = time_data[7]
-    # Tuple format: (year, month, mday, hour, minute, second, weekday, yearday)
-    
-    time_data = time_data[0:3] + (0,) + time_data[3:6] + (0,)
-    # Tuple format: (year, month, day, weekday, hours, minutes, seconds)
-    RTC().datetime(time_data)
+    RTC().datetime = struct_time(time_data)
     log("RTC set")
 
 # ********** PREFS MANAGEMENT FUNCTIONS **********
@@ -449,6 +449,7 @@ def set_prefs(prefs_data):
     Set the clock's preferences to reflect the specified object's contents.
     '''
     global prefs
+
     if "mode" in prefs_data: prefs["mode"] = prefs_data["mode"]
     if "colon" in prefs_data: prefs["colon"] = prefs_data["colon"]
     if "flash" in prefs_data: prefs["flash"] = prefs_data["flash"]
@@ -462,12 +463,14 @@ def save_prefs():
     Write the current prefs to Flash.
     '''
     global prefs
-    try:
-        json_prefs = json.dumps(prefs)
-        with open("prefs.json", "w") as file:
-            file.write(json_prefs)
-    except:
-        log_error("Prefs JSON save error")
+
+    if display_present:
+        try:
+            json_prefs = json.dumps(prefs)
+            with open("prefs.json", "w") as file:
+                file.write(json_prefs)
+        except:
+            log_error("Prefs JSON save error")
 
 
 def default_prefs():
@@ -475,6 +478,7 @@ def default_prefs():
     Set the clock's default preferences.
     '''
     global prefs
+
     prefs = {}
     prefs["mode"] = True
     prefs["colon"] = True
@@ -522,41 +526,41 @@ def clock(timecheck=False):
         # The decimal point by the first digit is used to indicate connection status
         # (lit if the clock is disconnected)
         decimal = bcd(hour)
-        if mode is False and hour < 10:
-            matrix.set_glyph(0, 0, False)
-        else:
-            matrix.set_number(decimal >> 4, 0, False)
-        matrix.set_number(decimal & 0x0F, 1, False)
+        if display_present:
+            if mode is False and hour < 10:
+                matrix.set_glyph(0, 0, False)
+            else:
+                matrix.set_number(decimal >> 4, 0, False)
+            matrix.set_number(decimal & 0x0F, 1, False)
 
-        # Display the minute
-        # The decimal point by the last digit is used to indicate AM/PM,
-        # but only for the 12-hour clock mode (mode == False)
-        decimal = bcd(now_min)
-        matrix.set_number(decimal >> 4, 2, False)
-        matrix.set_number(decimal & 0x0F, 3, is_pm if mode is False else False)
+            # Display the minute
+            # The decimal point by the last digit is used to indicate AM/PM,
+            # but only for the 12-hour clock mode (mode == False)
+            decimal = bcd(now_min)
+            matrix.set_number(decimal >> 4, 2, False)
+            matrix.set_number(decimal & 0x0F, 3, is_pm if mode is False else False)
 
-        # Set the colon and present the display
-        matrix.set_colon(prefs["colon"])
-        if prefs["colon"] is True and prefs["flash"] is True:
-            matrix.set_colon(now_sec % 2 == 0)
-        
-        if show_time_button.value() == 0:
-            matrix.draw()
-        else:
-            matrix.clear().draw()
+            # Set the colon and present the display
+            matrix.set_colon(prefs["colon"])
+            if prefs["colon"] is True and prefs["flash"] is True:
+                matrix.set_colon(now_sec % 2 == 0)
+            
+            if show_time_button.value == 0:
+                matrix.draw()
+            else:
+                matrix.clear().draw()
 
         # Every hour dump the RTC in case of resets
         if (1 < now_min < 10) and timecheck is False:
-            rtc_time = RTC().datetime()
-            # Tuple format: (year, month, day, weekday, hours, minutes, seconds)
-            py_time = rtc_time[0:3] + rtc_time[4:7] + (rtc_time[3], yrdy,)
-            # Tuple format: (year, month, mday, hour, minute, second, weekday, yearday)
-            prefs["epoch"] = mktime(py_time)
+            rtc_time = localtime()
+            prefs["epoch"] = int(mktime(rtc_time))
             save_prefs()
             timecheck = True
 
         # Reset the 'do check' flag every other hour
         if now_min > 10: timecheck = False
+
+        sleep(0.001)
 
 # ********** LOGGING FUNCTIONS **********
 
@@ -576,9 +580,10 @@ def log_debug(msg):
 
 
 def log(msg):
-    now = localtime()
-    with open("log.txt", "a") as file:
-        file.write("{}-{}-{} {}:{}:{} {}\n".format(now[0], now[1], now[2], now[3], now[4], now[5], msg))
+    if display_present:
+        now = localtime()
+        with open("log.txt", "a") as file:
+            file.write("{}-{}-{} {}:{}:{} {}\n".format(now[0], now[1], now[2], now[3], now[4], now[5], msg))
 
 # ********** MISC FUNCTIONS **********
 
@@ -599,14 +604,28 @@ if __name__ == '__main__':
     # Load non-default prefs, if any
     load_prefs()
     
-    # We're not using a matrix, but use the term for code consistency
-    i2c = I2C(0, scl=Pin(17), sda=Pin(16))
-    matrix = HT16K33Segment(i2c)
-    matrix.set_brightness(prefs["bright"])
+    # Set up I2C
+    i2c = busio.I2C(board.SCL, board.SDA)
+    while not i2c.try_lock():
+        pass
+
+    devices = i2c.scan()
+    display_present = False
+    if len(devices) > 0:
+        for device in devices:
+            if int(device) == 0x70:
+                display_present = True
+                break
+    
+    if display_present:
+        matrix = HT16K33Segment(i2c)
+        matrix.set_brightness(prefs["bright"])
+        matrix.clear().draw()
     
     # Config the button -- this will be pressed to show the time
-    show_time_button = Pin(12, Pin.IN, Pin.PULL_UP)
+    show_time_button = DigitalInOut(board.BUTTON)
+    show_time_button.direction = Direction.INPUT
+    show_time_button.pull = Pull.UP
 
-    # Clear the display and start the clock loop
-    matrix.clear().draw()
+    # Start the clock loop
     clock(False)

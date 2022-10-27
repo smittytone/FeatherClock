@@ -6,9 +6,16 @@
 #
 # Version 1.3.0c
 
-# Set the Feather's device record using the argument
-device=/Volumes/CIRCUITPY
+# Set the Feather's display type using the argument
 display_type=$1
+
+# Set the target volume
+platform=$(uname)
+if [[ ${platform} == Darwin ]]; then
+    device=/Volumes/CIRCUITPY
+else
+    device="/media/$USER/CIRCUITPY"
+fi
 
 if [[ -z "${display_type}" ]]; then
     echo 'Usage: ./install.sh {display type}'

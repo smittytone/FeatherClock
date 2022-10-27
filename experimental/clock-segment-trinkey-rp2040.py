@@ -617,15 +617,15 @@ if __name__ == '__main__':
                 display_present = True
                 break
     
-    if display_present:
-        matrix = HT16K33Segment(i2c)
-        matrix.set_brightness(prefs["bright"])
-        matrix.clear().draw()
-    
     # Config the button -- this will be pressed to show the time
     show_time_button = DigitalInOut(board.BUTTON)
     show_time_button.direction = Direction.INPUT
     show_time_button.pull = Pull.UP
 
-    # Start the clock loop
-    clock(False)
+    if display_present:
+        matrix = HT16K33Segment(i2c)
+        matrix.set_brightness(prefs["bright"])
+        matrix.clear().draw()
+    
+        # Start the clock loop
+        clock(False)

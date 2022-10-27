@@ -4,7 +4,7 @@
 # Install the clock code and update the preferences to
 # deliver the current time to the clock's RTC.
 #
-# Version 1.3.0c
+# Version 1.3.1c
 
 # Set the Feather's display type using the argument
 display_type=$1
@@ -46,14 +46,11 @@ if [[ -e prefs.json ]]; then
 fi
 
 # Copy log file then zap the device's one
-if cp -f "${device}/log.txt" log.txt > /dev/null; then
-    rm "${device}/log.txt"
-else
-    echo "Could not copy log.txt from the device"
-fi
+cp "${device}/log.txt" log.txt 2>/dev/null || echo "Could not copy log.txt from the device"
+[[ -e "${device}/log.txt" ]] && rm -f "${device}/log.txt"
 
 # Copy the 'compiled' code
-cp -f "clock-${display_type}-${chip}.py" "${device}/code.py"
-cp -f boot.py "${device}/boot.py"
+cp "clock-${display_type}-${chip}.py" "${device}/code.py"
+cp boot.py "${device}/boot.py"
 
 echo "Code copied. Press RESET or power cycle, to run the code."

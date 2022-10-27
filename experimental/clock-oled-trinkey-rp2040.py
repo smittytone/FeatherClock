@@ -942,14 +942,14 @@ if __name__ == '__main__':
                 display_present = True
                 break
     
-    if display_present:
-        matrix = SSD1306OLED(i2c)
-        matrix.clear().draw()
-
     # Config the button -- this will be pressed to show the time
     show_time_button = DigitalInOut(board.BUTTON)
     show_time_button.direction = Direction.INPUT
     show_time_button.pull = Pull.UP
 
-    # Start the clock loop
-    clock(False)
+    if display_present:
+        matrix = SSD1306OLED(i2c)
+        matrix.clear().draw()
+
+        # Start the clock loop
+        clock(False)

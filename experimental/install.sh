@@ -17,6 +17,11 @@ else
     device="/media/$USER/CIRCUITPY"
 fi
 
+quirk=" "
+if [[ ${platform} == Darwin ]]; then
+    quirk="-X"
+fi
+
 if [[ -z "${display_type}" ]]; then
     echo 'Usage: ./install.sh {display type}'
     echo 'The supported display types are `segment` or `oled`.'
@@ -41,16 +46,16 @@ echo "Copying \"clock-${display_type}-${chip}.py\" to device \"${device}\"..."
 if [[ -e prefs.json ]]; then
     epoch=$(date +%s)
     sed "s|@EPOCH|${epoch}|" prefs.json > uprefs.json
-    cp uprefs.json "${device}/prefs.json"
+    cp ${quirk} uprefs.json "${device}/prefs.json"
     rm uprefs.json
 fi
 
 # Copy log file then zap the device's one
-cp "${device}/log.txt" log.txt 2>/dev/null || echo "Could not copy log.txt from the device"
+cp ${quirk} "${device}/log.txt" log.txt 2>/dev/null || echo "Could not copy log.txt from the device"
 [[ -e "${device}/log.txt" ]] && rm -f "${device}/log.txt"
 
 # Copy the 'compiled' code
-cp "clock-${display_type}-${chip}.py" "${device}/code.py"
-cp boot.py "${device}/boot.py"
+cp ${quirk} "clock-${display_type}-${chip}.py" "${device}/code.py"
+cp ${quirk} boot.py "${device}/boot.py"
 
 echo "Code copied. Press RESET or power cycle, to run the code."

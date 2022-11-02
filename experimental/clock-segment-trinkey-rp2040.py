@@ -490,7 +490,7 @@ def default_prefs():
 
 # ********** CLOCK MANAGEMENT FUNCTIONS **********
 
-def clock(timecheck=False):
+def clock(time_check=False):
     '''
     The primary clock routine: in infinite loop that displays the time
     from the UTC every pass and flips the display's central colon every
@@ -502,6 +502,7 @@ def clock(timecheck=False):
     global prefs
     
     mode = prefs["mode"]
+    is_clear = True
 
     while True:
         now = localtime()
@@ -509,24 +510,23 @@ def clock(timecheck=False):
         now_min = now[4]
         now_sec = now[5]
 
-        if prefs["bst"] is True and is_bst() is True:
-            now_hour += 1
-        if now_hour > 23: now_hour -= 23
+        # Only set up display if the button is pressed
+        if show_time_button.value == 0:
+            # Get the time
+            if prefs["bst"] is True and is_bst() is True:
+                now_hour += 1
+            if now_hour > 23: now_hour -= 23
 
-        is_pm = False
-        if now_hour > 11: is_pm = True
+            is_pm = False
+            if now_hour > 11: is_pm = True
 
-        # Calculate and set the hours digits
-        hour = now_hour
-        if mode is False:
-            if is_pm is True: hour -= 12
-            if hour == 0: hour = 12
+            # Calculate and set the hours digits
+            hour = now_hour
+            if mode is False:
+                if is_pm is True: hour -= 12
+                if hour == 0: hour = 12
 
-        # Display the hour
-        # The decimal point by the first digit is used to indicate connection status
-        # (lit if the clock is disconnected)
-        decimal = bcd(hour)
-        if display_present:
+            decimal = bcd(hour)
             if mode is False and hour < 10:
                 matrix.set_glyph(0, 0, False)
             else:
@@ -544,23 +544,26 @@ def clock(timecheck=False):
             matrix.set_colon(prefs["colon"])
             if prefs["colon"] is True and prefs["flash"] is True:
                 matrix.set_colon(now_sec % 2 == 0)
-            
-            if show_time_button.value == 0:
-                matrix.draw()
-            else:
+
+            matrix.draw()
+            is_clear = False
+        else:
+            if is_clear is False:
                 matrix.clear().draw()
+                is_clear = True
 
         # Every hour dump the RTC in case of resets
-        if (1 < now_min < 10) and timecheck is False:
+        if (1 < now_min < 10) and time_check is False:
             rtc_time = localtime()
             prefs["epoch"] = int(mktime(rtc_time))
             save_prefs()
-            timecheck = True
+            time_check = True
 
         # Reset the 'do check' flag every other hour
-        if now_min > 10: timecheck = False
+        if now_min > 10: time_check = False
 
-        sleep(0.001)
+        sleep(0.01)
+
 
 # ********** LOGGING FUNCTIONS **********
 

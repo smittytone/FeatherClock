@@ -512,7 +512,6 @@ def clock(time_check=False):
 
         # Only set up display if the button is pressed
         if show_time_button.value == 0:
-            # Get the time
             if prefs["bst"] is True and is_bst() is True:
                 now_hour += 1
             if now_hour > 23: now_hour -= 23
@@ -525,7 +524,8 @@ def clock(time_check=False):
             if mode is False:
                 if is_pm is True: hour -= 12
                 if hour == 0: hour = 12
-
+            
+            # Display the hour
             decimal = bcd(hour)
             if mode is False and hour < 10:
                 matrix.set_glyph(0, 0, False)
@@ -542,9 +542,8 @@ def clock(time_check=False):
 
             # Set the colon and present the display
             matrix.set_colon(prefs["colon"])
-            if prefs["colon"] is True and prefs["flash"] is True:
-                matrix.set_colon(now_sec % 2 == 0)
 
+            # Draw the display
             matrix.draw()
             is_clear = False
         else:
@@ -563,7 +562,6 @@ def clock(time_check=False):
         if now_min > 10: time_check = False
 
         sleep(0.01)
-
 
 # ********** LOGGING FUNCTIONS **********
 

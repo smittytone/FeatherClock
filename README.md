@@ -85,7 +85,7 @@ To get `<FEATHER_DEVICE_PATH>`, you can add my Z Shell function [`dlist()`](http
 
 ### Release History ###
 
-- 1.3.0 *Unreleased*
+- 1.3.0 *24 January 2023*
     - Add experimental [Trinkey RP2040](https://www.adafruit.com/product/5056) version.
     - Better resilience to WiFi connection loss.
     - Better log file management.
@@ -138,4 +138,4 @@ To get `<FEATHER_DEVICE_PATH>`, you can add my Z Shell function [`dlist()`](http
 
 ### Licence ###
 
-FeatherClock is copyright 2022, Tony Smith. It is released under the MIT licence.
+FeatherClock is copyright 2023, Tony Smith. It is released under the MIT licence.

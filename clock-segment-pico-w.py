@@ -1,9 +1,9 @@
 '''
 Clock Segment RP2040 - a very simple four-digit timepiece
 
-Version:   1.3.0
+Version:   1.3.1
 Author:    smittytone
-Copyright: 2022, Tony Smith
+Copyright: 2024, Tony Smith
 Licence:   MIT
 '''
 
@@ -662,8 +662,8 @@ def sync_text():
     sync = b'\x6D\x6E\x37\x39'
     for i in range(0, 4): matrix.set_glyph(sync[i], i)
     matrix.draw()
-    
-    
+
+
 def bcd(bin_value):
     for i in range(0, 8):
         bin_value = bin_value << 1
@@ -671,7 +671,7 @@ def bcd(bin_value):
         if (bin_value & 0xF00) > 0x4FF: bin_value += 0x300
         if (bin_value & 0xF000) > 0x4FFF: bin_value += 0x3000
     return (bin_value >> 8) & 0xFF
-    
+
 # ********** RUNTIME START **********
 
 if __name__ == '__main__':
@@ -680,12 +680,12 @@ if __name__ == '__main__':
 
     # Load non-default prefs, if any
     load_prefs()
-    
+
     # Not a matrix, but use the term for code consistency
     i2c = I2C(0, scl=Pin(17), sda=Pin(16))
     matrix = HT16K33Segment(i2c)
     matrix.set_brightness(prefs["bright"])
-    
+
     # Add logging
     if prefs["do_log"]:
         try:
@@ -694,7 +694,7 @@ if __name__ == '__main__':
         except:
             with open(log_path, "w") as file:
                 file.write("FeatherCLock Log\n")
-            
+
     # Display 'sync' on the display while connecting,
     # and attempt to connect
     sync_text()

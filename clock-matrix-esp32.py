@@ -1,9 +1,9 @@
 '''
 Clock Matrix ESP32 - a very simple four-digit timepiece
 
-Version:   1.3.0
+Version:   1.3.1
 Author:    smittytone
-Copyright: 2022, Tony Smith
+Copyright: 2024, Tony Smith
 Licence:   MIT
 '''
 
@@ -583,7 +583,7 @@ def clock(timecheck=False):
 
         # Reset the 'do check' flag every other hour
         if now_hour % 6 > 0: timecheck = False
-        
+
         sleep(0.03)
 
 # ********** LOGGING FUNCTIONS **********

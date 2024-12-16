@@ -1,4 +1,4 @@
-# FeatherClock 1.3.0 #
+# FeatherClock 1.3.1 #
 
 This repo contains code written for the [Adafruit Feather HUZZAH ESP32](https://www.adafruit.com/product/3405) and the [Raspberry Pi Pico W](https://datasheets.raspberrypi.com/picow/pico-w-datasheet.pdf), all running [MicroPython](http://micropython.org/).
 
@@ -15,14 +15,26 @@ Currently, the clock has no remote control, which the Electric Imp Platform make
 *For ESP32 boards*
 
 1. Install `pyboard.py` from [GitHub](https://github.com/micropython/micropython/blob/master/tools/pyboard.py).
+    * Copy `pyboard.py` to a location accessible via your `$PATH`. Rename it `pyboard`.
 1. Install `esptool.py` using `brew install esptool`
 
 *For Pico W boards*
 
 1. Install `pyboard.py` from [GitHub](https://github.com/micropython/micropython/blob/master/tools/pyboard.py).
+    * Copy `pyboard.py` to a location accessible via your `$PATH`. Rename it `pyboard`.
 1. Download [MicroPython](https://micropython.org/resources/firmware/ADAFRUIT_QTPY_RP2040-20220618-v1.19.1.uf2) and drop the `.uf2` file onto the mounted `RP2` drive.
 
 #### App Installation ####
+
+*Pre-requisites*
+
+1. Set up a Python virtual environment
+    1. `git clone https://github.com/smittytone/FeatherClock`
+    1. `cd FeatherClock`
+    1. `python -m venv .python`
+    1. `source .python/bin/activate`
+    1. `pip3 install -r requirements.txt`
+    1. Continue as below. Once complete, run `deactivate`
 
 *For ESP32 boards*
 
@@ -32,7 +44,7 @@ Currently, the clock has no remote control, which the Electric Imp Platform make
 1. Update MicroPython:
     * For ESP32:
         1. `esptool.py --chip esp32 --port <FEATHER_DEVICE_PATH> erase_flash`
-        1. `esptool.py --chip esp32 --port <FEATHER_DEVICE_PATH> --baud 460800 write_flash -z 0x1000 esp32-20220618-v1.19.1.bin`
+        1. `esptool.py --chip esp32 --port <FEATHER_DEVICE_PATH> --baud 460800 write_flash -z 0x1000 ESP32_GENERIC-20241129-v1.24.1.bin`
 1. `cd featherclock`
 1. Run `./install.sh <FEATHER_DEVICE_PATH>`
 1. Press `3` for an ESP32 device.
@@ -85,6 +97,8 @@ To get `<FEATHER_DEVICE_PATH>`, you can add my Z Shell function [`dlist()`](http
 
 ### Release History ###
 
+- 1.3.1 *Unreleased*
+    - Bring the project up to date.
 - 1.3.0 *24 January 2023*
     - Add experimental [Trinkey RP2040](https://www.adafruit.com/product/5056) version.
     - Better resilience to WiFi connection loss.
@@ -138,4 +152,4 @@ To get `<FEATHER_DEVICE_PATH>`, you can add my Z Shell function [`dlist()`](http
 
 ### Licence ###
 
-FeatherClock is copyright 2023, Tony Smith. It is released under the MIT licence.
+FeatherClock is copyright 2024, Tony Smith. It is released under the MIT licence.

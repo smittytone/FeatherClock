@@ -3,7 +3,7 @@
 
 # Install the clock code with the requested WiFi credentials
 #
-# Version 1.3.1
+# Version 1.4.0
 
 # Set the Feather's device record using the argument
 dev=$1
@@ -57,24 +57,23 @@ read -p "Enter your WiFi SSID: " ssid
 read -p "Enter your WiFi password: " pass
 
 echo -e "\nAdding WiFi credentials to code..."
-sed "s|\"@SSID\"|\"$ssid\"|; \
-     s|\"@PASS\"|\"$pass\"|" \
-     "$HOME/GitHub/featherclock/clock-${dtype}-${chip}.py" > "main.py"
-
+sed "s|\"@SSID\"|\"${ssid}\"|; \
+    s|\"@PASS\"|\"${pass}\"|" \
+    "$HOME/GitHub/featherclock/clock-${dtype}-${chip}.py" > "main.py"
 echo "Copying \"clock-${dtype}-${chip}.py\" to device \"$dev\"..."
 
 # Copy prefs.json if present if the current dir
-[[ -e prefs.json ]] && pyboard -d $dev -f cp prefs.json :prefs.json
+[[ -e prefs.json ]] && pyboard -d ${dev} -f cp prefs.json :prefs.json
 
 # Copy log file then zap the device's one
-if pyboard -d $dev -f cp :log.txt log.txt > /dev/null; then
-    pyboard -d $dev -f rm :log.txt
+if pyboard -d ${dev} -f cp :log.txt log.txt > /dev/null; then
+    pyboard -d ${dev} -f rm :log.txt
 else
     echo "Could not copy log.txt from the device"
 fi
 
 # Copy the 'compiled' code
-pyboard -d $dev -f cp main.py :main.py
+pyboard -d ${dev} -f cp main.py :main.py
 
 echo "Code copied. Press RESET on the Feather, or power cycle, to run the code."
 

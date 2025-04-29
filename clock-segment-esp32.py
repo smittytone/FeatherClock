@@ -1,9 +1,9 @@
 '''
 Clock Segment ESP32 - a very simple four-digit timepiece
 
-Version:   1.3.1
+Version:   1.4.0
 Author:    smittytone
-Copyright: 2024, Tony Smith
+Copyright: 2025, Tony Smith
 Licence:   MIT
 '''
 
@@ -11,6 +11,7 @@ Licence:   MIT
 
 import usocket as socket
 import ustruct as struct
+import urequests as requests
 import ujson as json
 import network
 from micropython import const
@@ -21,21 +22,22 @@ from utime import gmtime, sleep
 
 prefs = None
 wout = None
+ow = None
+saved_temp = 0
 log_path = "log.txt"
 
 # ********** CLASSES **********
 
 class HT16K33:
-    '''
+    """
     A simple, generic driver for the I2C-connected Holtek HT16K33 controller chip.
     This release supports MicroPython and CircuitPython
 
-    Version:    3.3.1
     Bus:        I2C
     Author:     Tony Smith (@smittytone)
     License:    MIT
-    Copyright:  2022
-    '''
+    Copyright:  2025
+    """
 
     # *********** CONSTANTS **********
 
@@ -53,147 +55,183 @@ class HT16K33:
     address = 0
     brightness = 15
     flash_rate = 0
+    # HT16K33 Row pin to LED column mapping. Default: 1:1
+    map = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
     # *********** CONSTRUCTOR **********
 
-    def __init__(self, i2c, i2c_address):
+    def __init__(self, i2c, i2c_address, map=None):
         assert 0x00 <= i2c_address < 0x80, "ERROR - Invalid I2C address in HT16K33()"
         self.i2c = i2c
         self.address = i2c_address
+        if map is not None:
+            assert len(map) == 16, "ERROR - Invalid map size (should be 16) in HT16K33()"
+            self.map = map
         self.power_on()
 
     # *********** PUBLIC METHODS **********
 
     def set_blink_rate(self, rate=0):
-        '''
+        """
         Set the display's flash rate.
 
-        Only four values (in Hz) are permitted: 0, 2, 1, and 0,5.
+        Only four values (in Hz) are permitted: 0, 2, 1, and 0.5.
 
         Args:
             rate (int): The chosen flash rate. Default: 0Hz (no flash).
-        '''
-        assert rate in (0, 0.5, 1, 2), "ERROR - Invalid blink rate set in set_blink_rate()"
-        self.blink_rate = rate & 0x03
-        self._write_cmd(self.HT16K33_GENERIC_CMD_BLINK | rate << 1)
+        """
+        allowed_rates = (0, 2, 1, 0.5)
+        assert rate in allowed_rates, "ERROR - Invalid blink rate set in set_blink_rate()"
+        self.blink_rate = allowed_rates.index(rate) & 0x03
+        self._write_cmd(self.HT16K33_GENERIC_CMD_BLINK | self.blink_rate << 1)
 
     def set_brightness(self, brightness=15):
-        '''
+        """
         Set the display's brightness (ie. duty cycle).
 
         Brightness values range from 0 (dim, but not off) to 15 (max. brightness).
 
         Args:
             brightness (int): The chosen flash rate. Default: 15 (100%).
-        '''
+        """
         if brightness < 0 or brightness > 15: brightness = 15
         self.brightness = brightness
         self._write_cmd(self.HT16K33_GENERIC_CMD_BRIGHTNESS | brightness)
 
     def draw(self):
-        '''
+        """
         Writes the current display buffer to the display itself.
 
         Call this method after updating the buffer to update
         the LED itself.
-        '''
+        """
         self._render()
 
     def update(self):
-        '''
+        """
         Alternative for draw() for backwards compatibility
-        '''
+        """
         self._render()
 
     def clear(self):
-        '''
+        """
         Clear the buffer.
 
         Returns:
             The instance (self)
-        '''
+        """
         for i in range(0, len(self.buffer)): self.buffer[i] = 0x00
         return self
 
     def power_on(self):
-        '''
+        """
         Power on the controller and display.
-        '''
+        """
         self._write_cmd(self.HT16K33_GENERIC_SYSTEM_ON)
         self._write_cmd(self.HT16K33_GENERIC_DISPLAY_ON)
 
     def power_off(self):
-        '''
+        """
         Power on the controller and display.
-        '''
+        """
         self._write_cmd(self.HT16K33_GENERIC_DISPLAY_OFF)
         self._write_cmd(self.HT16K33_GENERIC_SYSTEM_OFF)
 
     # ********** PRIVATE METHODS **********
 
     def _render(self):
-        '''
+        """
         Write the display buffer out to I2C
-        '''
-        buffer = bytearray(len(self.buffer) + 1)
-        buffer[1:] = self.buffer
+        """
+        buffer = bytearray(17)
         buffer[0] = 0x00
+        if len(self.buffer) == 8:
+            src_buffer = bytearray(16)
+            for i in range(0,8):
+                src_buffer[i * 2] = self.buffer[i]
+        else:
+            src_buffer = self.buffer
+        # Apply mapping
+        for i in range(1,16,2):
+            k = self._map_word((src_buffer[i] << 8) | src_buffer[i - 1])
+            buffer[i] = k & 0xFF
+            buffer[i + 1] = (k >> 8) & 0xFF
         self.i2c.writeto(self.address, bytes(buffer))
 
     def _write_cmd(self, byte):
-        '''
+        """
         Writes a single command to the HT16K33. A private method.
-        '''
+        """
         self.i2c.writeto(self.address, bytes([byte]))
 
+    def _map_word(self, bb):
+        k = 0
+        for i in range(0,16):
+            bit = (bb & (1 << i)) >> i
+            value = (bit << self.map[i]) #(bit << i) if self.map[i] > 15 else (bit << self.map[i])
+            k |= value 
+        return k
+
+    def output(self, a):
+        s = "["
+        for i in range(0, len(a)):
+            s += f"{a[i]} "
+        s += "]"
+        print(s)
 
 class HT16K33Segment(HT16K33):
-    '''
+    """
     Micro/Circuit Python class for the Adafruit 0.56-in 4-digit,
     7-segment LED matrix backpack and equivalent Featherwing.
 
-    Version:    3.3.1
     Bus:        I2C
     Author:     Tony Smith (@smittytone)
     License:    MIT
-    Copyright:  2022
-    '''
+    Copyright:  2025
+    """
 
     # *********** CONSTANTS **********
 
     HT16K33_SEGMENT_COLON_ROW = 0x04
     HT16K33_SEGMENT_MINUS_CHAR = 0x10
     HT16K33_SEGMENT_DEGREE_CHAR = 0x11
-    HT16K33_SEGMENT_SPACE_CHAR = 0x00
+    HT16K33_SEGMENT_SPACE_CHAR = 0x12
 
     # The positions of the segments within the buffer
     POS = (0, 2, 6, 8)
 
     # Bytearray of the key alphanumeric characters we can show:
-    # 0-9, A-F, minus, degree
-    CHARSET = b'\x3F\x06\x5B\x4F\x66\x6D\x7D\x07\x7F\x6F\x5F\x7C\x58\x5E\x7B\x71\x40\x63'
+    # 0-9, A-F, minus, degree, space
+    CHARSET = b'\x3F\x06\x5B\x4F\x66\x6D\x7D\x07\x7F\x6F\x5F\x7C\x58\x5E\x7B\x71\x40\x63\x00'
+    # FROM 4.1.0
+    CHARSET_UC = b'\x3F\x06\x5B\x4F\x66\x6D\x7D\x07\x7F\x6F\x77\x7C\x39\x5E\x79\x71\x40\x63\x00'
 
     # *********** CONSTRUCTOR **********
 
     def __init__(self, i2c, i2c_address=0x70):
         self.buffer = bytearray(16)
         self.is_rotated = False
+
+        # FROM 4.1.0
+        self.use_uppercase = False
+        self.charset = self.CHARSET
+
         super(HT16K33Segment, self).__init__(i2c, i2c_address)
 
     # *********** PUBLIC METHODS **********
 
     def rotate(self):
-        '''
+        """
         Rotate/flip the segment display.
 
         Returns:
             The instance (self)
-        '''
+        """
         self.is_rotated = not self.is_rotated
         return self
 
     def set_colon(self, is_set=True):
-        '''
+        """
         Set or unset the display's central colon symbol.
 
         This method updates the display buffer, but does not send the buffer to the display itself.
@@ -204,12 +242,34 @@ class HT16K33Segment(HT16K33):
 
         Returns:
             The instance (self)
-        '''
+        """
         self.buffer[self.HT16K33_SEGMENT_COLON_ROW] = 0x02 if is_set is True else 0x00
         return self
 
+    def set_uppercase(self):
+        """
+        Set the character set used to display upper case alpha characters.
+
+        FROM 4.1.0
+
+        Returns:
+            The instance (self)
+        """
+        return self._set_case(True)
+
+    def set_lowercase(self):
+        """
+        Set the character set used to display lower case alpha characters.
+
+        FROM 4.1.0
+
+        Returns:
+            The instance (self)
+        """
+        return self._set_case(False)
+
     def set_glyph(self, glyph, digit=0, has_dot=False):
-        '''
+        """
         Present a user-defined character glyph at the specified digit.
 
         Glyph values are 8-bit integers representing a pattern of set LED segments.
@@ -235,7 +295,7 @@ class HT16K33Segment(HT16K33):
 
         Returns:
             The instance (self)
-        '''
+        """
         # Bail on incorrect row numbers or character values
         assert 0 <= digit < 4, "ERROR - Invalid digit (0-3) set in set_glyph()"
         assert 0 <= glyph < 0x80, "ERROR - Invalid glyph (0x00-0x80) set in set_glyph()"
@@ -245,7 +305,7 @@ class HT16K33Segment(HT16K33):
         return self
 
     def set_number(self, number, digit=0, has_dot=False):
-        '''
+        """
         Present single decimal value (0-9) at the specified digit.
 
         This method updates the display buffer, but does not send the buffer to the display itself.
@@ -258,7 +318,7 @@ class HT16K33Segment(HT16K33):
 
         Returns:
             The instance (self)
-        '''
+        """
         # Bail on incorrect row numbers or character values
         assert 0 <= digit < 4, "ERROR - Invalid digit (0-3) set in set_number()"
         assert 0 <= number < 10, "ERROR - Invalid value (0-9) set in set_number()"
@@ -266,7 +326,7 @@ class HT16K33Segment(HT16K33):
         return self.set_character(str(number), digit, has_dot)
 
     def set_character(self, char, digit=0, has_dot=False):
-        '''
+        """
         Present single alphanumeric character at the specified digit.
 
         Only characters from the class' character set are available:
@@ -283,7 +343,7 @@ class HT16K33Segment(HT16K33):
 
         Returns:
             The instance (self)
-        '''
+        """
         # Bail on incorrect row numbers
         assert 0 <= digit < 4, "ERROR - Invalid digit set in set_character()"
 
@@ -303,17 +363,17 @@ class HT16K33Segment(HT16K33):
         # Bail on incorrect character values
         assert char_val != 0xFF, "ERROR - Invalid char string set in set_character()"
 
-        self.buffer[self.POS[digit]] = self.CHARSET[char_val]
+        self.buffer[self.POS[digit]] = self.charset[char_val]
         if has_dot is True: self.buffer[self.POS[digit]] |= 0x80
         return self
 
     def draw(self):
-        '''
+        """
         Writes the current display buffer to the display itself.
 
         Call this method after updating the buffer to update
         the LED itself. Rotation handled here.
-        '''
+        """
         if self.is_rotated:
             # Swap digits 0,3 and 1,2
             a = self.buffer[self.POS[0]]
@@ -332,6 +392,196 @@ class HT16K33Segment(HT16K33):
                 a &= 0xC0
                 self.buffer[self.POS[i]] = (a | b | c)
         self._render()
+    
+    # *********** PRIVATE METHODS **********
+    
+    def _set_case(self, is_upper):
+        """
+        Set the character set used to display alpha characters.
+
+        FROM 4.1.0
+
+        Args:
+            is_upper (Bool): `True` for upper case characters; `False` for lower case.
+
+        Returns:
+            The instance (self)
+        """
+        if self.use_uppercase is not is_upper:
+            self.charset = self.CHARSET_UC if is_upper else self.CHARSET
+            self.use_uppercase = is_upper
+        return self
+
+class OpenMeteo:
+    '''
+    This class allows you to make one of two possible calls to Open Meteo's
+    API. For more information, see https://open-meteo.com/en/docs
+
+    NOTE this class does not parse the incoming data, which is highly complex.
+        It is up to your application to extract the data you require.
+
+    Version:        0.1.0
+    Author:         Tony Smith (@smittytone)
+    License:        MIT
+    Copyright:      2025
+    '''
+
+    # *********** CONSTANTS **********
+
+    VERSION = "0.1.0"
+    FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
+
+    # *********Private Properties **********
+
+    requests = None
+    debug = False
+
+    # *********** CONSTRUCTOR **********
+
+    def __init__(self, requests_object=None, do_debug=False):
+        '''
+        Instantiate the class.
+
+        Args:
+            requests_object [requests] An instance of the Requests class.
+            do_debug [bool             Output debug information. Default: False.
+        '''
+        assert requests_object is not None, \
+            "[ERROR] OpenMeteo() requires a valid requests instance"
+        assert do_debug is True or do_debug is False, \
+            "[ERROR] OpenMeteo() requires a boolean for debug selection"
+
+        # Set private properties
+        self.debug = do_debug
+        self.requests = requests_object
+
+    # *********** PUBLIC METHODS **********
+
+    def request_forecast(self, latitude=999.0, longitude=999.0):
+        '''
+        Make a request for future weather data.
+
+        Args:
+            longitude [float]   Longitude of location for which a forecast is required.
+            latitude [float]    Latitude of location for which a forecast is required.
+
+        Returns:
+            The weather data.
+        '''
+        # Check the supplied co-ordinates
+        if not self._check_coords(latitude, longitude, "request_forecast"):
+            return {"error": "Co-ordinate error"}
+
+        # Co-ordinates good, so get a forecast
+        url = self.FORECAST_URL
+        url += f"?latitude={latitude:.6f}&longitude={longitude:.6f}&current=temperature_2m"
+        self._print_debug("Request URL: " + url)
+        return self._send_request(url)
+
+    # *********PRIVATE FUNCTIONS - DO NOT CALL **********
+
+    def _send_request(self, request_uri):
+        '''
+        Send a request to OpenMeteo.
+
+        Args:
+            request_uri [string]    The URL-encoded request to send.
+
+        Returns:
+            Dictionary containing `data` or `err` keys.
+        '''
+        return self._process_response(self.requests.get(request_uri))
+
+    def _process_response(self, response):
+        '''
+        Process a response received from OpenMeteo.
+
+        Args:
+            response [response] The HTTPS response.
+
+        Returns
+            Dictionary containing `data` or `err` keys.
+        '''
+        err = ""
+        data = ""
+
+        if response.status_code != 200:
+            err = "Unable to retrieve forecast data (code: " + str(response.status_code) + ")"
+        else:
+            try:
+                # Have we valid JSON?
+                data = response.json()
+                data["statuscode"] = response.status_code
+            except self.requests.exceptions.JSONDecodeError as exp:
+                err = "Unable to decode data received from Open Weather: " + str(exp)
+
+        response.close()
+
+        if err:
+            return {"err": err}
+
+        return {"data": data}
+
+    def _check_coords(self, latitude=999.0, longitude=999.0, caller="function"):
+        '''
+        Check that valid co-ordinates have been supplied.
+
+        Args:
+            longitude [float]   Longitude of location for which a forecast is required.
+            latitude [float]    Latitude of location for which a forecast is required.
+            caller [string]     The name of the calling function, for error reporting.
+
+        Returns:
+            Whether the supplied co-ordinates are valid (True) or not (False).
+        '''
+        err = "OpenMeteo." + caller + "() "
+        try:
+            longitude = float(longitude)
+        except (ValueError, OverflowError):
+            self._print_error(err + "can't process supplied longitude value")
+            return False
+
+        try:
+            latitude = float(latitude)
+        except (ValueError, OverflowError):
+            self._print_error(err + "can't process supplied latitude value")
+            return False
+
+        if longitude == 999.0 or latitude == 999.0:
+            self._print_error(err + "requires valid latitude/longitude co-ordinates")
+            return False
+
+        if latitude > 90.0 or latitude < -90.0:
+            self._print_error(err + "latitude co-ordinate out of range")
+            return False
+
+        if longitude > 180.0 or longitude < -180.0:
+            self._print_error(err + "latitude co-ordinate out of range")
+            return False
+        return True
+
+    def _print_error(self, *msgs):
+        '''
+        Print an error message.
+
+        Args:
+            msg [string]    The error message.
+        '''
+        msg = "[ERROR] "
+        for item in msgs: msg += item
+        log(msg)
+
+    def _print_debug(self, *msgs):
+        '''
+        Print a debug message.
+
+        Args:
+            msg [tuple]    One or more string components
+        '''
+        if self.debug:
+            msg = "[DEBUG] "
+            for item in msgs: msg += item
+            log(msg)
 
 # ********** CALENDAR FUNCTIONS **********
 
@@ -347,7 +597,6 @@ def is_bst(now=None):
         bool: Whether the specified date is within the BST period (true), or not (false).
     '''
     return bst_check(now)
-
 
 def bst_check(now=None):
     '''
@@ -376,7 +625,6 @@ def bst_check(now=None):
 
     return False
 
-
 def day_of_week(day, month, year):
     '''
     Determine the day of the week for a given day, month and year, using
@@ -399,7 +647,6 @@ def day_of_week(day, month, year):
     dow = dow % 7
     if dow < 0: dow += 7
     return dow
-
 
 def is_leap_year(year):
     '''
@@ -452,7 +699,6 @@ def get_time(timeout=10):
     if sock: sock.close()
     return return_value
 
-
 def set_rtc(timeout=10):
     now_time = get_time(timeout)
     if now_time:
@@ -482,7 +728,6 @@ def load_prefs():
         except ValueError:
             log_error("Prefs JSON decode error")
 
-
 def set_prefs(prefs_data):
     '''
     Set the clock's preferences to reflect the specified object's contents.
@@ -494,7 +739,17 @@ def set_prefs(prefs_data):
     if "bright" in prefs_data: prefs["bright"] = prefs_data["bright"]
     if "on" in prefs_data: prefs["on"] = prefs_data["on"]
     if "do_log" in prefs_data: prefs["do_log"] = prefs_data["do_log"]
-
+    # FROM 1.4.0
+    if "show_temp" in prefs_data: 
+        prefs["show_temp"] = prefs_data["show_temp"]
+        if "lat" in prefs_data: 
+            prefs["lat"] = prefs_data["lat"]
+        else:
+            prefs_data["show_temp"] = False
+        if "lng" in prefs_data: 
+            prefs["lng"] = prefs_data["lng"]
+        else:
+            prefs["show_temp"] = False
 
 def default_prefs():
     '''
@@ -510,6 +765,10 @@ def default_prefs():
     prefs["on"] = True
     prefs["url"] = "@AGENT"
     prefs["do_log"] = True
+    # FROM 1.4.0
+    prefs["show_temp"] = False
+    prefs["lat"] = 0.0
+    prefs["lng"] = 0.0
 
 # ********** NETWORK FUNCTIONS **********
 
@@ -545,16 +804,30 @@ def connect():
                 return
     log("Connected")
 
-
 def initial_connect():
     # Connect and get the time
     connect()
     timecheck = False
-    if wout.isconnected(): timecheck = set_rtc(59)
+    if wout.isconnected(): 
+        timecheck = set_rtc(59)
+        if prefs["show_temp"]:
+            forecast = ow.request_forecast(prefs["lat"], prefs["lng"])
+            process_forecast(forecast)
 
     # Clear the display and start the clock loop
     matrix.clear()
     clock(timecheck)
+
+def process_forecast(forecast):
+    global saved_temp
+
+    if "data" in forecast:
+        # Get second item in array: this is the weather one hour from now
+        item = forecast["data"]["current"]
+        # Send the icon name to the device
+        saved_temp = int(item["temperature_2m"])
+    else:
+        log_error(forecast["err"])
 
 # ********** CLOCK FUNCTIONS **********
 
@@ -569,6 +842,9 @@ def clock(timecheck=False):
     '''
 
     mode = prefs["mode"]
+    show_clock = True
+    flipped = False
+    received = False
 
     while True:
         now = gmtime()
@@ -576,49 +852,93 @@ def clock(timecheck=False):
         now_min = now[4]
         now_sec = now[5]
 
-        if prefs["bst"] is True and is_bst() is True:
-            now_hour += 1
-        if now_hour > 23: now_hour -= 24
-
-        is_pm = False
-        if now_hour > 11: is_pm = True
-
-        # Calculate and set the hours digits
-        hour = now_hour
-        if mode is False:
-            if is_pm is True: hour -= 12
-            if hour == 0: hour = 12
-
-        # Display the hour
-        # The decimal point by the first digit is used to indicate connection status
-        # (lit if the clock is disconnected)
-        decimal = bcd(hour)
-        if mode is False and hour < 10:
-            matrix.set_glyph(0, 0, not wout.isconnected())
+        # FROM 1.4.0
+        # Every five seconds flip the display
+        if now_sec % 5 == 0:
+            if not flipped:
+                show_clock = not show_clock
+                flipped = True
         else:
-            matrix.set_number(decimal >> 4, 0, not wout.isconnected())
-        matrix.set_number(decimal & 0x0F, 1, False)
+            flipped = False
 
-        # Display the minute
-        # The decimal point by the last digit is used to indicate AM/PM,
-        # but only for the 12-hour clock mode (mode == False)
-        decimal = bcd(now_min)
-        matrix.set_number(decimal >> 4, 2, False)
-        matrix.set_number(decimal & 0x0F, 3, is_pm if mode is False else False)
+        if prefs["show_temp"] and show_clock is False:
+            display_temperature()
+        else:
+            if prefs["bst"] is True and is_bst() is True:
+                now_hour += 1
+            if now_hour > 23: now_hour -= 24
 
-        # Set the colon and present the display
-        matrix.set_colon(prefs["colon"])
-        if prefs["colon"] is True and prefs["flash"] is True:
-            matrix.set_colon(now_sec % 2 == 0)
-        matrix.draw()
+            is_pm = False
+            if now_hour > 11: is_pm = True
 
+            # Calculate and set the hours digits
+            hour = now_hour
+            if mode is False:
+                if is_pm is True: hour -= 12
+                if hour == 0: hour = 12
+
+            # Display the hour
+            # The decimal point by the first digit is used to indicate connection status
+            # (lit if the clock is disconnected)
+            decimal = bcd(hour)
+            if mode is False and hour < 10:
+                matrix.set_glyph(0, 0, not wout.isconnected())
+            else:
+                matrix.set_number(decimal >> 4, 0, not wout.isconnected())
+            matrix.set_number(decimal & 0x0F, 1, False)
+
+            # Display the minute
+            # The decimal point by the last digit is used to indicate AM/PM,
+            # but only for the 12-hour clock mode (mode == False)
+            decimal = bcd(now_min)
+            matrix.set_number(decimal >> 4, 2, False)
+            matrix.set_number(decimal & 0x0F, 3, is_pm if mode is False else False)
+
+            # Set the colon and present the display
+            matrix.set_colon(prefs["colon"])
+            if prefs["colon"] is True and prefs["flash"] is True:
+                matrix.set_colon(now_sec % 2 == 0)
+            matrix.draw()           
+        
         # Every six hours re-sync the ESP32 RTC
         if now_hour % 6 == 0 and (1 < now_min < 8) and timecheck is False:
             if not wout.isconnected(): connect()
             if wout.isconnected(): timecheck = set_rtc(59)
 
-        # Reset the 'do check' flag every other hour
+        # Reset the 'do check' flag every other hour from the above
         if now_hour % 6 > 0: timecheck = False
+
+        # FROM 1.4.0
+        # Get the outside temperature every hour
+        if prefs["show_temp"] and ow is not None and now_min == 7 and not received:
+            forecast = ow.request_forecast(prefs["lat"], prefs["lng"])
+            process_forecast(forecast)
+            received = True
+
+        if now_min != 7: received = False
+
+# ********** WEATHER FUNCTIONS **********
+
+def display_temperature():
+    '''
+    Display the current temperature.
+    '''
+    matrix.set_glyph(0, 0)
+    matrix.set_glyph(0x63, 3)
+    matrix.set_colon(False)
+    
+    temp = saved_temp
+    if saved_temp < 0:
+        matrix.set_character("-", 0)
+        temp = saved_temp * -1
+    
+    decimal = bcd(temp)
+    matrix.set_number(decimal & 0x0F, 2)
+    if saved_temp < 10:
+        matrix.set_number(0, 1)
+    else:
+        matrix.set_number(decimal >> 4, 1)
+    matrix.draw()
 
 # ********** LOGGING FUNCTIONS **********
 
@@ -632,13 +952,11 @@ def log_error(msg, error_code=0):
         msg = "[ERROR] {}".format(msg)
     log(msg)
 
-
 def log_debug(msg):
     '''
     Log a debug message
     '''
     log("[DEBUG] {}".format(msg))
-
 
 def log(msg):
     '''
@@ -660,7 +978,6 @@ def sync_text():
     sync = b'\x6D\x6E\x37\x39'
     for i in range(0, 4): matrix.set_glyph(sync[i], i)
     matrix.draw()
-
 
 def bcd(bin_value):
     for i in range(0, 8):
@@ -692,6 +1009,11 @@ if __name__ == '__main__':
         except:
             with open(log_path, "w") as file:
                 file.write("FeatherCLock Log\n")
+
+    # FROM 1.4.0
+    # Instantiate OpenMeteo
+    if prefs["show_temp"]:
+        ow = OpenMeteo(requests, True)
 
     # Display 'sync' on the display while connecting,
     # and attempt to connect

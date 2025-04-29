@@ -1,4 +1,4 @@
-# FeatherClock 1.3.1 #
+# FeatherClock 1.4.0 #
 
 This repo contains code written for the [Adafruit Feather HUZZAH ESP32](https://www.adafruit.com/product/3405) and the [Raspberry Pi Pico W](https://datasheets.raspberrypi.com/picow/pico-w-datasheet.pdf), all running [MicroPython](http://micropython.org/).
 
@@ -7,6 +7,10 @@ It is an attempt to replicate my [Electric Imp clock project](https://github.com
 Currently, the clock has no remote control, which the Electric Imp Platform makes very easy to implement, but is rather less so here. You can [set preferences](#clock-settings), though. Adding a web UI, served locally or remotely, lies in a future phase of the project.
 
 **Note** I previously supported the [Adafruit Feather HUZZAH ESP8266](https://www.adafruit.com/product/2821), but this is no longer the case: its RTC is poor and it has too little memory. If you are using this board, you can find the code in the [`archive`](/archive) directory. I will instead be focusing on boards that are more modern.
+
+Version 1.4.0 includes the option to alternate the clock with a readout of the current outdoor temperature. This requires the `prefs.json` file to be updated with additional keys, and this has been done with the sample file included here (see **Clock Settings**, below). It is easy to turn off this feature if you don't require it: change the value of the `show_temp` key to `false`, or comment out the line. By default, the clock will not enable this feature.
+
+The temperature is collected from [Open Meteo](https://open-meteo.com/), which provides free access for low-volume, non-commercial applications.
 
 ### Installation ###
 
@@ -69,12 +73,17 @@ Currently, the clock has no remote control, which the Electric Imp Platform make
 For now, the clock’s prefs are set by sending over a `prefs.json` file with the following values:
 
 ```json
-{ "mode":   <true/false>,   # 24-hour (true) or 12-hour (false)
-  "colon":  <true/false>,   # Show a colon between the hours and minutes readouts
-  "flash":  <true/false>,   # Flash the colon symbol, if it's shown
-  "bright": 10,             # Display brightness from 1 (dim) to 15 (bright)
-  "bst":    <true/false>,   # Auto-adjust for Daylight Saving Time
-  "do_log": <true/false> }  # Write log data to the file `log.txt` on the device
+{ "mode":   <true/false>,       # 24-hour (true) or 12-hour (false)
+  "colon":  <true/false>,       # Show a colon between the hours and minutes readouts
+  "flash":  <true/false>,       # Flash the colon symbol, if it's shown
+  "bright": 10,                 # Display brightness from 1 (dim) to 15 (bright)
+  "bst":    <true/false>,       # Auto-adjust for Daylight Saving Time
+  "do_log": <true/false>,       # Write log data to the file `log.txt` on the device
+  # From 1.4.0 and up
+  "show_temp": <true/false>,    # Alternate clock with outside temperature
+  "lat": float,                 # Your location, in latitude and longitude
+  "lng": float
+}  
 ```
 
 Having installed `pyboard.py` as above, you send over prefs file using:
@@ -97,7 +106,8 @@ To get `<FEATHER_DEVICE_PATH>`, you can add my Z Shell function [`dlist()`](http
 
 ### Release History ###
 
-- 1.3.1 *Unreleased*
+- 1.4.0 *Unreleased*
+    - Add local temperature readout to alternate with clock readout.
     - Bring the project up to date.
 - 1.3.0 *24 January 2023*
     - Add experimental [Trinkey RP2040](https://www.adafruit.com/product/5056) version.
@@ -152,4 +162,4 @@ To get `<FEATHER_DEVICE_PATH>`, you can add my Z Shell function [`dlist()`](http
 
 ### Licence ###
 
-FeatherClock is copyright 2024, Tony Smith. It is released under the MIT licence.
+FeatherClock is copyright 2025, Tony Smith. It is released under the MIT licence.

@@ -845,7 +845,7 @@ def clock(timecheck=False):
     '''
 
     flipped = False
-    received = False
+    received_forecast = False
     index = 0
     flip_time = 3
 
@@ -854,7 +854,7 @@ def clock(timecheck=False):
     if prefs["show_date"]: faces.append(display_date)
     if prefs["show_temp"]: faces.append(display_temperature)
 
-    # Ensure faces are display an even number of times (given the periodicity of face switches)
+    # Ensure faces are displayed an even number of times (given the periodicity of face switches)
     # over the base period of 60 seconds. If the flip duration is too high, reduce it. If the
     # number of faces doesn't fit evenly into the number of slots, pad them out with additional
     # clock face views, interleaved with the others
@@ -900,13 +900,13 @@ def clock(timecheck=False):
 
         # FROM 1.4.0
         # Get the outside temperature every hour
-        if prefs["show_temp"] and ow is not None and now_min == 7 and not received:
+        if prefs["show_temp"] and now_min == 7 and not received_forecast:
             forecast = ow.request_forecast(prefs["lat"], prefs["lng"])
             process_forecast(forecast)
-            received = True
+            received_forecast = True
 
         # Reset the temperature check flag every other minute from the above
-        if now_min != 7: received = False
+        if now_min != 7: received_forecast = False
 
 # ********** DISPLAY FUNCTIONS **********
 

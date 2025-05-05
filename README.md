@@ -12,6 +12,8 @@ Version 1.4.0 includes the option to alternate the clock with a readout of the c
 
 The temperature is collected from [Open Meteo](https://open-meteo.com/), which provides free access for low-volume, non-commercial applications.
 
+Version 1.4.0 also includes the option to alternate the clock with a readout of the current day of the month and the month. This requires the `prefs.json` file to be updated with additional keys, and this has been done with the sample file included here (see **Clock Settings**, below). It is easy to turn off this feature if you don't require it: change the value of the `show_date` key to `false`, or comment out the line. By default, the clock will show the date.
+
 ### Installation ###
 
 #### Pre-requisites ####
@@ -80,6 +82,7 @@ For now, the clock’s prefs are set by sending over a `prefs.json` file with th
   "bst":    <true/false>,       # Auto-adjust for Daylight Saving Time
   "do_log": <true/false>,       # Write log data to the file `log.txt` on the device
   # From 1.4.0 and up
+  "show_date": <true/false>,    # Alternate clock with day and month readout
   "show_temp": <true/false>,    # Alternate clock with outside temperature
   "lat": float,                 # Your location, in latitude and longitude
   "lng": float
@@ -108,6 +111,7 @@ To get `<FEATHER_DEVICE_PATH>`, you can add my Z Shell function [`dlist()`](http
 
 - 1.4.0 *Unreleased*
     - Add local temperature readout to alternate with clock readout.
+    - Add day and month readout to alternate with the clock readout (and temperature readout, if enabled).
     - Bring the project up to date.
 - 1.3.0 *24 January 2023*
     - Add experimental [Trinkey RP2040](https://www.adafruit.com/product/5056) version.

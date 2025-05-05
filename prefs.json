@@ -5,6 +5,7 @@
   "on": true,
   "bst": true,
   "do_log": false,
+  "show_date": true,
   "show_temp": true,
   "lat": 51.550911480918785,
   "lng": -0.1406914511609041

@@ -750,6 +750,8 @@ def set_prefs(prefs_data):
             prefs["lng"] = prefs_data["lng"]
         else:
             prefs["show_temp"] = False
+    if "show_date" in prefs_data:
+        prefs["show_date"] = prefs_data["show_date"]
 
 def default_prefs():
     '''
@@ -766,6 +768,7 @@ def default_prefs():
     prefs["url"] = "@AGENT"
     prefs["do_log"] = True
     # FROM 1.4.0
+    prefs["show_date"] = True
     prefs["show_temp"] = False
     prefs["lat"] = 0.0
     prefs["lng"] = 0.0
@@ -795,11 +798,11 @@ def connect():
         while not wout.isconnected():
             # Flash char 4's decimal point during connection
             sleep(0.5)
-            matrix.set_glyph(glyph, 3, state).draw()
+            seg_led.set_glyph(glyph, 3, state).draw()
             state = not state
             con_count += 1
             if con_count > 120:
-                matrix.set_glyph(glyph, 3, false).draw()
+                seg_led.set_glyph(glyph, 3, false).draw()
                 log("Unable to connect in 60s")
                 return
     log("Connected")
@@ -815,7 +818,7 @@ def initial_connect():
             process_forecast(forecast)
 
     # Clear the display and start the clock loop
-    matrix.clear()
+    seg_led.clear()
     clock(timecheck)
 
 def process_forecast(forecast):
@@ -841,11 +844,32 @@ def clock(timecheck=False):
          savings calculation.
     '''
 
-    mode = prefs["mode"]
-    show_clock = True
     flipped = False
     received = False
+    index = 0
+    flip_time = 3
 
+    # Build an array of face display functions to call in sequence
+    faces = [display_clock]
+    if prefs["show_date"]: faces.append(display_date)
+    if prefs["show_temp"]: faces.append(display_temperature)
+
+    # Ensure faces are display an even number of times (given the periodicity of face switches)
+    # over the base period of 60 seconds. If the flip duration is too high, reduce it. If the
+    # number of faces doesn't fit evenly into the number of slots, pad them out with additional
+    # clock face views, interleaved with the others
+    insert_index = 2 
+    while True:
+        if 60 % flip_time == 0:
+            c = 60.0 / float(flip_time)
+            if c % len(faces) == 0: break
+            # Insert an extra clock face to even out the flow
+            faces.insert(insert_index, display_clock)
+            insert_index += 2
+        else:
+            flip_time -= 1
+    
+    # Now begin the display cycle
     while True:
         now = gmtime()
         now_hour = now[3]
@@ -853,59 +877,25 @@ def clock(timecheck=False):
         now_sec = now[5]
 
         # FROM 1.4.0
-        # Every five seconds flip the display
-        if now_sec % 5 == 0:
+        # Every `flip_time` seconds, flip the clock face.
+        # The flag `flipped` makes sure we don't re-flip during the period
+        # the temporal condition is true
+        if now_sec % flip_time == 0:
             if not flipped:
-                show_clock = not show_clock
+                index = (index + 1) % len(faces)
                 flipped = True
         else:
             flipped = False
 
-        if prefs["show_temp"] and show_clock is False:
-            display_temperature()
-        else:
-            if prefs["bst"] is True and is_bst() is True:
-                now_hour += 1
-            if now_hour > 23: now_hour -= 24
-
-            is_pm = False
-            if now_hour > 11: is_pm = True
-
-            # Calculate and set the hours digits
-            hour = now_hour
-            if mode is False:
-                if is_pm is True: hour -= 12
-                if hour == 0: hour = 12
-
-            # Display the hour
-            # The decimal point by the first digit is used to indicate connection status
-            # (lit if the clock is disconnected)
-            decimal = bcd(hour)
-            if mode is False and hour < 10:
-                matrix.set_glyph(0, 0, not wout.isconnected())
-            else:
-                matrix.set_number(decimal >> 4, 0, not wout.isconnected())
-            matrix.set_number(decimal & 0x0F, 1, False)
-
-            # Display the minute
-            # The decimal point by the last digit is used to indicate AM/PM,
-            # but only for the 12-hour clock mode (mode == False)
-            decimal = bcd(now_min)
-            matrix.set_number(decimal >> 4, 2, False)
-            matrix.set_number(decimal & 0x0F, 3, is_pm if mode is False else False)
-
-            # Set the colon and present the display
-            matrix.set_colon(prefs["colon"])
-            if prefs["colon"] is True and prefs["flash"] is True:
-                matrix.set_colon(now_sec % 2 == 0)
-            matrix.draw()           
+        # Show the current clock face
+        faces[index](now)
         
         # Every six hours re-sync the ESP32 RTC
         if now_hour % 6 == 0 and (1 < now_min < 8) and timecheck is False:
             if not wout.isconnected(): connect()
             if wout.isconnected(): timecheck = set_rtc(59)
 
-        # Reset the 'do check' flag every other hour from the above
+        # Reset the RTC sync flag every other hour from the above
         if now_hour % 6 > 0: timecheck = False
 
         # FROM 1.4.0
@@ -915,30 +905,105 @@ def clock(timecheck=False):
             process_forecast(forecast)
             received = True
 
+        # Reset the temperature check flag every other minute from the above
         if now_min != 7: received = False
 
-# ********** WEATHER FUNCTIONS **********
+# ********** DISPLAY FUNCTIONS **********
 
-def display_temperature():
+def display_clock(t):
+    '''
+    Display the current time.
+    '''
+    now_hour = t[3]
+    now_min = t[4]
+    now_sec = t[5]
+    mode = prefs["mode"]
+
+    if prefs["bst"] is True and is_bst() is True:
+        now_hour += 1
+    if now_hour > 23: now_hour -= 24
+
+    is_pm = False
+    if now_hour > 11: is_pm = True
+
+    # Calculate and set the hours digits
+    hour = now_hour
+    if mode is False:
+        if is_pm is True: hour -= 12
+        if hour == 0: hour = 12
+
+    # Display the hour
+    # The decimal point by the first digit is used to indicate connection status
+    # (lit if the clock is disconnected)
+    decimal = bcd(hour)
+    if mode is False and hour < 10:
+        seg_led.set_glyph(0, 0, not wout.isconnected())
+    else:
+        seg_led.set_number(decimal >> 4, 0, not wout.isconnected())
+    seg_led.set_number(decimal & 0x0F, 1, False)
+
+    # Display the minute
+    # The decimal point by the last digit is used to indicate AM/PM,
+    # but only for the 12-hour clock mode (mode == False)
+    decimal = bcd(now_min)
+    seg_led.set_number(decimal >> 4, 2, False)
+    seg_led.set_number(decimal & 0x0F, 3, is_pm if mode is False else False)
+
+    # Set the colon and present the display
+    seg_led.set_colon(prefs["colon"])
+    if prefs["colon"] is True and prefs["flash"] is True:
+        seg_led.set_colon(now_sec % 2 == 0)
+    seg_led.draw()
+
+def display_date(t):
+    '''
+    Display the current date.
+    '''
+    now_month = t[1]
+    now_day = t[2]
+
+    # Display the day
+    # The decimal point by the first digit is used to indicate connection status
+    # (lit if the clock is disconnected)
+    decimal = bcd(now_day)
+    if now_day < 10:
+        seg_led.set_glyph(0, 0, not wout.isconnected())
+    else:
+        seg_led.set_number(decimal >> 4, 0, not wout.isconnected())
+    seg_led.set_number(decimal & 0x0F, 1, False)
+
+    # Display the month
+    decimal = bcd(now_month)
+    if now_month < 10:
+        seg_led.set_glyph(0, 2, False)
+    else:
+        seg_led.set_number(decimal >> 4, 2, False)
+    seg_led.set_number(decimal & 0x0F, 3, False)
+
+    # Set the colon and present the display
+    seg_led.set_colon(False)
+    seg_led.draw()
+
+def display_temperature(t):
     '''
     Display the current temperature.
     '''
-    matrix.set_glyph(0, 0)
-    matrix.set_glyph(0x63, 3)
-    matrix.set_colon(False)
+    seg_led.set_glyph(0, 0)
+    seg_led.set_glyph(0x63, 3)
+    seg_led.set_colon(False)
     
     temp = saved_temp
     if saved_temp < 0:
-        matrix.set_character("-", 0)
+        seg_led.set_character("-", 0)
         temp = saved_temp * -1
     
     decimal = bcd(temp)
-    matrix.set_number(decimal & 0x0F, 2)
+    seg_led.set_number(decimal & 0x0F, 2)
     if saved_temp < 10:
-        matrix.set_number(0, 1)
+        seg_led.set_number(0, 1)
     else:
-        matrix.set_number(decimal >> 4, 1)
-    matrix.draw()
+        seg_led.set_number(decimal >> 4, 1)
+    seg_led.draw()
 
 # ********** LOGGING FUNCTIONS **********
 
@@ -950,7 +1015,7 @@ def log_error(msg, error_code=0):
         msg = "[ERROR] {} ({})".format(msg, error_code)
     else:
         msg = "[ERROR] {}".format(msg)
-    log(msg)
+    log(msg, True)
 
 def log_debug(msg):
     '''
@@ -958,13 +1023,14 @@ def log_debug(msg):
     '''
     log("[DEBUG] {}".format(msg))
 
-def log(msg):
+def log(msg, is_err=False):
     '''
     Log a generic message
     '''
-    now = gmtime()
-    with open(log_path, "a") as file:
-        file.write("{}-{}-{} {}:{}:{} {}\n".format(now[0], now[1], now[2], now[3], now[4], now[5], msg))
+    if prefs["do_log"] or is_err:
+        now = gmtime()
+        with open(log_path, "a") as file:
+            file.write("{}-{}-{} {}:{}:{} {}\n".format(now[0], now[1], now[2], now[3], now[4], now[5], msg))
 
 # ********** MISC FUNCTIONS **********
 
@@ -974,10 +1040,10 @@ def sync_text():
     newly booted clock is connecting to the Internet and getting the
     current time.
     '''
-    matrix.clear()
+    seg_led.clear()
     sync = b'\x6D\x6E\x37\x39'
-    for i in range(0, 4): matrix.set_glyph(sync[i], i)
-    matrix.draw()
+    for i in range(0, 4): seg_led.set_glyph(sync[i], i)
+    seg_led.draw()
 
 def bcd(bin_value):
     for i in range(0, 8):
@@ -998,8 +1064,8 @@ if __name__ == '__main__':
 
     # Initialize hardware
     i2c = I2C(scl=Pin(22), sda=Pin(23))
-    matrix = HT16K33Segment(i2c)
-    matrix.set_brightness(prefs["bright"])
+    seg_led = HT16K33Segment(i2c)
+    seg_led.set_brightness(prefs["bright"])
 
     # Add logging
     if prefs["do_log"]:

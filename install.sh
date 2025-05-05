@@ -31,7 +31,7 @@ if ! which pyboard.py > /dev/null; then
 fi
 
 # Make sure the Feather is connected before proceeding
-[[ ! -e "${dev}" ]] && { echo "[ERROR] Feather or Pico W is not connected to USB"; exit 1; }
+[ ! -e "${dev}" ] && { echo "[ERROR] Feather or Pico W is not connected to USB"; exit 1; }
 
 # FROM 1.0.10 -- Allow user to choose device type
 read -n 1 -s -p "Press [3] to install on an ESP32, or any other key to install on a Pico W " keypress
@@ -60,10 +60,10 @@ echo -e "\nAdding WiFi credentials to code..."
 sed "s|\"@SSID\"|\"${ssid}\"|; \
     s|\"@PASS\"|\"${pass}\"|" \
     "$HOME/GitHub/featherclock/clock-${dtype}-${chip}.py" > "main.py"
-echo "Copying \"clock-${dtype}-${chip}.py\" to device \"$dev\"..."
+echo "Copying \"clock-${dtype}-${chip}.py\" to device \"${dev}\"..."
 
 # Copy prefs.json if present if the current dir
-[[ -e prefs.json ]] && pyboard -d ${dev} -f cp prefs.json :prefs.json
+[ -e prefs.json ] && pyboard -d ${dev} -f cp prefs.json :prefs.json
 
 # Copy log file then zap the device's one
 if pyboard -d ${dev} -f cp :log.txt log.txt > /dev/null; then

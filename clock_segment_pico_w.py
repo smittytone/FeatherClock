@@ -1,5 +1,5 @@
 '''
-Clock Segment ESP32 - a very simple four-digit timepiece
+Clock Segment RP2040 - a very simple four-digit timepiece
 
 Version:   1.4.0
 Author:    smittytone
@@ -9,11 +9,11 @@ Licence:   MIT
 
 # ********** IMPORTS **********
 
+import network
 import usocket as socket
 import ustruct as struct
 import urequests as requests
 import ujson as json
-import network
 from micropython import const
 from machine import I2C, Pin, RTC
 from utime import gmtime, sleep
@@ -22,8 +22,6 @@ from utime import gmtime, sleep
 
 prefs = None
 wout = None
-ow = None
-saved_temp = 0
 log_path = "log.txt"
 
 # ********** CLASSES **********
@@ -392,7 +390,7 @@ class HT16K33Segment(HT16K33):
                 a &= 0xC0
                 self.buffer[self.POS[i]] = (a | b | c)
         self._render()
-    
+
     # *********** PRIVATE METHODS **********
     
     def _set_case(self, is_upper):
@@ -710,7 +708,7 @@ def set_rtc(timeout=10):
     log_error("RTC not set")
     return False
 
-# ********** PREFERENCES FUNCTIONS **********
+# ********** PREFS MANAGEMENT FUNCTIONS **********
 
 def load_prefs():
     file_data = None
@@ -727,6 +725,7 @@ def load_prefs():
             set_prefs(data)
         except ValueError:
             log_error("Prefs JSON decode error")
+
 
 def set_prefs(prefs_data):
     '''
@@ -802,16 +801,17 @@ def connect():
             state = not state
             con_count += 1
             if con_count > 120:
-                seg_led.set_glyph(glyph, 3, false).draw()
+                seg_led.set_glyph(glyph, 3, True).draw()
                 log("Unable to connect in 60s")
                 return
+    seg_led.set_glyph(glyph, 3, False).draw()
     log("Connected")
 
 def initial_connect():
     # Connect and get the time
     connect()
     timecheck = False
-    if wout.isconnected(): 
+    if wout.isconnected():
         timecheck = set_rtc(59)
         if prefs["show_temp"]:
             forecast = ow.request_forecast(prefs["lat"], prefs["lng"])
@@ -908,7 +908,7 @@ def clock(timecheck=False):
         # Reset the temperature check flag every other minute from the above
         if now_min != 7: received_forecast = False
 
-# ********** DISPLAY FUNCTIONS **********
+# ********** WEATHER FUNCTIONS **********
 
 def display_clock(t):
     '''
@@ -1046,6 +1046,9 @@ def sync_text():
     seg_led.draw()
 
 def bcd(bin_value):
+    '''
+    Convert an integer from 0-99 to Binary Coded Decimal
+    '''
     for i in range(0, 8):
         bin_value = bin_value << 1
         if i == 7: break
@@ -1062,18 +1065,18 @@ if __name__ == '__main__':
     # Load non-default prefs, if any
     load_prefs()
 
-    # Initialize hardware
-    i2c = I2C(scl=Pin(22), sda=Pin(23))
+    # Set up the segment LED display
+    i2c = I2C(0, scl=Pin(17), sda=Pin(16))
     seg_led = HT16K33Segment(i2c)
     seg_led.set_brightness(prefs["bright"])
 
     # Add logging
     if prefs["do_log"]:
         try:
-            with open(log_path, "r") as file:
+            with open(log_path, "r", encoding="utf-8") as file:
                 pass
-        except:
-            with open(log_path, "w") as file:
+        except FileNotFoundError:
+            with open(log_path, "w", encoding="utf-8") as file:
                 file.write("FeatherCLock Log\n")
 
     # FROM 1.4.0

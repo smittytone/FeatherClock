@@ -1,5 +1,5 @@
 '''
-Clock Matrix ESP32 - a very simple four-digit timepiece
+Clock Segment ESP32 - a very simple four-digit timepiece
 
 Version:   1.4.0
 Author:    smittytone
@@ -9,11 +9,11 @@ Licence:   MIT
 
 # ********** IMPORTS **********
 
-import network
 import usocket as socket
 import ustruct as struct
 import urequests as requests
 import ujson as json
+import network
 from micropython import const
 from machine import I2C, Pin, RTC
 from utime import gmtime, sleep
@@ -22,7 +22,9 @@ from utime import gmtime, sleep
 
 prefs = None
 wout = None
-log_path = "log.txt"
+ow = None
+saved_temp = 0
+LOG_PATH = "log.txt"
 
 # ********** CLASSES **********
 
@@ -53,6 +55,7 @@ class HT16K33:
     address = 0
     brightness = 15
     flash_rate = 0
+    blink_rate = 0
     # HT16K33 Row pin to LED column mapping. Default: 1:1
     map = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
@@ -166,20 +169,14 @@ class HT16K33:
         k = 0
         for i in range(0,16):
             bit = (bb & (1 << i)) >> i
-            value = (bit << self.map[i]) #(bit << i) if self.map[i] > 15 else (bit << self.map[i])
-            k |= value 
+            value = bit << self.map[i]
+            k |= value
         return k
 
-    def output(self, a):
-        s = "["
-        for i in range(0, len(a)):
-            s += f"{a[i]} "
-        s += "]"
-        print(s)
-
-class HT16K33MatrixFeatherWing(HT16K33):
+class HT16K33Segment(HT16K33):
     """
-    Micro/Circuit Python class for the Adafruit 0.8-in 16x8 LED matrix FeatherWing.
+    Micro/Circuit Python class for the Adafruit 0.56-in 4-digit,
+    7-segment LED matrix backpack and equivalent Featherwing.
 
     Bus:        I2C
     Author:     Tony Smith (@smittytone)
@@ -189,315 +186,225 @@ class HT16K33MatrixFeatherWing(HT16K33):
 
     # *********** CONSTANTS **********
 
-    CHARSET = [
-        b"\x00\x00",              # space - Ascii 32
-        b"\xfa",                  # !
-        b"\xc0\x00\xc0",          # "
-        b"\x24\x7e\x24\x7e\x24",  # #
-        b"\x24\xd4\x56\x48",      # $
-        b"\xc6\xc8\x10\x26\xc6",  # %
-        b"\x6c\x92\x6a\x04\x0a",  # &
-        b"\xc0",                  # '
-        b"\x7c\x82",              # (
-        b"\x82\x7c",              # )
-        b"\x10\x7c\x38\x7c\x10",  # *
-        b"\x10\x10\x7c\x10\x10",  # +
-        b"\x06\x07",              # ,
-        b"\x10\x10\x10\x10",      # -
-        b"\x06\x06",              # .
-        b"\x04\x08\x10\x20\x40",  # /
-        b"\x7c\x8a\x92\xa2\x7c",  # 0 - Ascii 48
-        b"\x42\xfe\x02",          # 1
-        b"\x46\x8a\x92\x92\x62",  # 2
-        b"\x44\x92\x92\x92\x6c",  # 3
-        b"\x18\x28\x48\xfe\x08",  # 4
-        b"\xf4\x92\x92\x92\x8c",  # 5
-        b"\x3c\x52\x92\x92\x8c",  # 6
-        b"\x80\x8e\x90\xa0\xc0",  # 7
-        b"\x6c\x92\x92\x92\x6c",  # 8
-        b"\x60\x92\x92\x94\x78",  # 9
-        b"\x36\x36",              # : - Ascii 58
-        b"\x36\x37",              #
-        b"\x10\x28\x44\x82",      # <
-        b"\x24\x24\x24\x24\x24",  # =
-        b"\x82\x44\x28\x10",      # >
-        b"\x60\x80\x9a\x90\x60",  # ?
-        b"\x7c\x82\xba\xaa\x78",  # @
-        b"\x7e\x90\x90\x90\x7e",  # A - Ascii 65
-        b"\xfe\x92\x92\x92\x6c",  # B
-        b"\x7c\x82\x82\x82\x44",  # C
-        b"\xfe\x82\x82\x82\x7c",  # D
-        b"\xfe\x92\x92\x92\x82",  # E
-        b"\xfe\x90\x90\x90\x80",  # F
-        b"\x7c\x82\x92\x92\x5c",  # G
-        b"\xfe\x10\x10\x10\xfe",  # H
-        b"\x82\xfe\x82",          # I
-        b"\x0c\x02\x02\x02\xfc",  # J
-        b"\xfe\x10\x28\x44\x82",  # K
-        b"\xfe\x02\x02\x02",      # L
-        b"\xfe\x40\x20\x40\xfe",  # M
-        b"\xfe\x40\x20\x10\xfe",  # N
-        b"\x7c\x82\x82\x82\x7c",  # O
-        b"\xfe\x90\x90\x90\x60",  # P
-        b"\x7c\x82\x92\x8c\x7a",  # Q
-        b"\xfe\x90\x90\x98\x66",  # R
-        b"\x64\x92\x92\x92\x4c",  # S
-        b"\x80\x80\xfe\x80\x80",  # T
-        b"\xfc\x02\x02\x02\xfc",  # U
-        b"\xf8\x04\x02\x04\xf8",  # V
-        b"\xfc\x02\x3c\x02\xfc",  # W
-        b"\xc6\x28\x10\x28\xc6",  # X
-        b"\xe0\x10\x0e\x10\xe0",  # Y
-        b"\x86\x8a\x92\xa2\xc2",  # Z - Ascii 90
-        b"\xfe\x82\x82",          # [
-        b"\x40\x20\x10\x08\x04",  # \
-        b"\x82\x82\xfe",          # ]
-        b"\x20\x40\x80\x40\x20",  # ^
-        b"\x02\x02\x02\x02\x02",  # _
-        b"\xc0\xe0",              # '
-        b"\x04\x2a\x2a\x1e",      # a - Ascii 97
-        b"\xfe\x22\x22\x1c",      # b
-        b"\x1c\x22\x22\x22",      # c
-        b"\x1c\x22\x22\xfc",      # d
-        b"\x1c\x2a\x2a\x10",      # e
-        b"\x10\x7e\x90\x80",      # f
-        b"\x18\x25\x25\x3e",      # g
-        b"\xfe\x20\x20\x1e",      # h
-        b"\xbc\x02",              # i
-        b"\x02\x01\x21\xbe",      # j
-        b"\xfe\x08\x14\x22",      # k
-        b"\xfc\x02",              # l
-        b"\x3e\x20\x18\x20\x1e",  # m
-        b"\x3e\x20\x20 \x1e",     # n
-        b"\x1c\x22\x22\x1c",      # o
-        b"\x3f\x22\x22\x1c",      # p
-        b"\x1c\x22\x22\x3f",      # q
-        b"\x22\x1e\x20\x10",      # r
-        b"\x12\x2a\x2a\x04",      # s
-        b"\x20\x7c\x22\x04",      # t
-        b"\x3c\x02\x02\x3e",      # u
-        b"\x38\x04\x02\x04\x38",  # v
-        b"\x3c\x06\x0c\x06\x3c",  # w
-        b"\x22\x14\x08\x14\x22",  # x
-        b"\x39\x05\x06\x3c",      # y
-        b"\x26\x2a\x2a\x32",      # z - Ascii 122
-        b"\x10\x7c\x82\x82",      #
-        b"\xee",                  # |
-        b"\x82\x82\x7c\x10",      #
-        b"\x40\x80\x40\x80",      # ~
-        b"\x60\x90\x90\x60"       # Degrees sign - Ascii 127
-    ]
+    HT16K33_SEGMENT_COLON_ROW = 0x04
+    HT16K33_SEGMENT_MINUS_CHAR = 0x10
+    HT16K33_SEGMENT_DEGREE_CHAR = 0x11
+    HT16K33_SEGMENT_SPACE_CHAR = 0x12
 
-    # ********** PRIVATE PROPERTIES **********
+    # The positions of the segments within the buffer
+    POS = (0, 2, 6, 8)
 
-    width = 16
-    height = 8
-    def_chars = None
-    is_inverse = False
+    # Bytearray of the key alphanumeric characters we can show:
+    # 0-9, A-F, minus, degree, space
+    CHARSET = b'\x3F\x06\x5B\x4F\x66\x6D\x7D\x07\x7F\x6F\x5F\x7C\x58\x5E\x7B\x71\x40\x63\x00'
+    # FROM 4.1.0
+    CHARSET_UC = b'\x3F\x06\x5B\x4F\x66\x6D\x7D\x07\x7F\x6F\x77\x7C\x39\x5E\x79\x71\x40\x63\x00'
 
     # *********** CONSTRUCTOR **********
 
     def __init__(self, i2c, i2c_address=0x70):
-        self.buffer = bytearray(self.width * 2)
-        self.def_chars = []
-        for i in range(32): self.def_chars.append(b"\x00")
-        super(HT16K33MatrixFeatherWing, self).__init__(i2c, i2c_address)
+        self.buffer = bytearray(16)
+        self.is_rotated = False
+
+        # FROM 4.1.0
+        self.use_uppercase = False
+        self.charset = self.CHARSET
+
+        super(HT16K33Segment, self).__init__(i2c, i2c_address)
 
     # *********** PUBLIC METHODS **********
 
-    def set_inverse(self):
+    def rotate(self):
         """
-        Inverts the ink colour of the display
+        Rotate/flip the segment display.
 
         Returns:
             The instance (self)
         """
-        self.is_inverse = not self.is_inverse
-        for i in range(self.width * 2):
-            self.buffer[i] = (~ self.buffer[i]) & 0xFF
+        self.is_rotated = not self.is_rotated
         return self
 
-    def set_icon(self, glyph, column=0):
+    def set_colon(self, is_set=True):
+        """
+        Set or unset the display's central colon symbol.
+
+        This method updates the display buffer, but does not send the buffer to the display itself.
+        Call 'update()' to render the buffer on the display.
+
+        Args:
+            isSet (bool): Whether the colon is lit (True) or not (False). Default: True.
+
+        Returns:
+            The instance (self)
+        """
+        self.buffer[self.HT16K33_SEGMENT_COLON_ROW] = 0x02 if is_set is True else 0x00
+        return self
+
+    def set_uppercase(self):
+        """
+        Set the character set used to display upper case alpha characters.
+
+        FROM 4.1.0
+
+        Returns:
+            The instance (self)
+        """
+        return self._set_case(True)
+
+    def set_lowercase(self):
+        """
+        Set the character set used to display lower case alpha characters.
+
+        FROM 4.1.0
+
+        Returns:
+            The instance (self)
+        """
+        return self._set_case(False)
+
+    def set_glyph(self, glyph, digit=0, has_dot=False):
         """
         Present a user-defined character glyph at the specified digit.
 
-        Glyph values are byte arrays of eight 8-bit values.
+        Glyph values are 8-bit integers representing a pattern of set LED segments.
+        The value is calculated by setting the bit(s) representing the segment(s) you want illuminated.
+        Bit-to-segment mapping runs clockwise from the top around the outside of the matrix; the inner segment is bit 6:
+
+                0
+                _
+            5 |   | 1
+              |   |
+                - <----- 6
+            4 |   | 2
+              | _ |
+                3
+
         This method updates the display buffer, but does not send the buffer to the display itself.
-        Call 'draw()' to render the buffer on the display.
+        Call 'update()' to render the buffer on the display.
 
         Args:
-            glyph (bytearray) The glyph pattern.
-            column (int)      The column at which to write the icon. Default: 0
+            glyph (int):   The glyph pattern.
+            digit (int):   The digit to show the glyph. Default: 0 (leftmost digit).
+            has_dot (bool): Whether the decimal point to the right of the digit should be lit. Default: False.
 
         Returns:
             The instance (self)
         """
         # Bail on incorrect row numbers or character values
-        assert 0 < len(glyph) <= self.width * 2, "ERROR - Invalid glyph set in set_icon()"
-        assert 0 <= column < self.width, "ERROR - Invalid column number set in set_icon()"
+        assert 0 <= digit < 4, "ERROR - Invalid digit (0-3) set in set_glyph()"
+        assert 0 <= glyph < 0x80, "ERROR - Invalid glyph (0x00-0x80) set in set_glyph()"
 
-        for i in range(len(glyph)):
-            buf_column = self._get_row(column + i)
-            if buf_column is False: break
-            self.buffer[buf_column] = glyph[i] if self.is_inverse is False else ((~ glyph[i]) & 0xFF)
+        self.buffer[self.POS[digit]] = glyph
+        if has_dot is True: self.buffer[self.POS[digit]] |= 0x80
         return self
 
-    def set_character(self, ascii_value=32, column=0):
+    def set_number(self, number, digit=0, has_dot=False):
         """
-        Display a single character specified by its Ascii value on the matrix.
+        Present single decimal value (0-9) at the specified digit.
+
+        This method updates the display buffer, but does not send the buffer to the display itself.
+        Call 'update()' to render the buffer on the display.
 
         Args:
-            ascii_value (int) Character Ascii code. Default: 32 (space)
-            column (int)      Whether the icon should be displayed centred on the screen. Default: False
+            number (int):  The number to show.
+            digit (int):   The digit to show the number. Default: 0 (leftmost digit).
+            has_dot (bool): Whether the decimal point to the right of the digit should be lit. Default: False.
 
         Returns:
             The instance (self)
         """
         # Bail on incorrect row numbers or character values
-        assert 0 <= ascii_value < 128, "ERROR - Invalid ascii code set in set_character()"
-        assert 0 <= column < self.width, "ERROR - Invalid column number set in set_icon()"
+        assert 0 <= digit < 4, "ERROR - Invalid digit (0-3) set in set_number()"
+        assert 0 <= number < 10, "ERROR - Invalid value (0-9) set in set_number()"
 
-        glyph = None
-        if ascii_value < 32:
-            # A user-definable character has been chosen
-            glyph = self.def_chars[ascii_value]
-        else:
-            # A standard character has been chosen
-            ascii_value -= 32
-            if ascii_value < 0 or ascii_value >= len(self.CHARSET): ascii_value = 0
-            glyph = self.CHARSET[ascii_value]
-        return self.set_icon(glyph, column)
+        return self.set_character(str(number), digit, has_dot)
 
-    def scroll_text(self, the_line, speed=0.1):
+    def set_character(self, char, digit=0, has_dot=False):
         """
-        Scroll the specified line of text leftwards across the display.
+        Present single alphanumeric character at the specified digit.
+
+        Only characters from the class' character set are available:
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, a, b, c, d ,e, f, -.
+        Other characters can be defined and presented using 'set_glyph()'.
+
+        This method updates the display buffer, but does not send the buffer to the display itself.
+        Call 'update()' to render the buffer on the display.
 
         Args:
-            the_line (string) The string to display
-            speed (float)     The delay between frames
-        """
-        # Import the time library as we use time.sleep() here
-        import time
-
-        # Bail on zero string length
-        assert len(the_line) > 0, "ERROR - Invalid string set in scroll_text()"
-
-        # Calculate the source buffer size
-        length = 0
-        for i in range(len(the_line)):
-            asc_val = ord(the_line[i])
-            if asc_val < 32:
-                glyph = self.def_chars[asc_val]
-            else:
-                glyph = self.CHARSET[asc_val - 32]
-            length += len(glyph)
-            if asc_val > 32: length += 1
-        src_buffer = bytearray(length)
-
-        # Draw the string to the source buffer
-        row = 0
-        for i in range(len(the_line)):
-            asc_val = ord(the_line[i])
-            if asc_val < 32:
-                glyph = self.def_chars[asc_val]
-            else:
-                glyph = self.CHARSET[asc_val - 32]
-            for j in range(len(glyph)):
-                src_buffer[row] = glyph[j] if self.is_inverse is False else ((~ glyph[j]) & 0xFF)
-                row += 1
-            if asc_val > 32: row += 1
-        assert row == length, "ERROR - Mismatched lengths in scroll_text()"
-
-        # Finally, a the line
-        cursor = 0
-        while True:
-            a = cursor
-            for i in range(self.width):
-                self.buffer[self._get_row(i)] = src_buffer[a]
-                a += 1
-            self.draw()
-            cursor += 1
-            if cursor > length - self.width: break
-            time.sleep(speed)
-
-    def define_character(self, glyph, char_code=0):
-        """
-        Set a user-definable character.
-
-        Args:
-            glyph (bytearray) The glyph pattern.
-            char_code (int)   The character’s ID code (0-31). Default: 0
+            char (string):  The character to show.
+            digit (int):    The digit to show the number. Default: 0 (leftmost digit).
+            has_dot (bool): Whether the decimal point to the right of the digit should be lit. Default: False.
 
         Returns:
             The instance (self)
         """
-        # Bail on incorrect row numbers or character values
-        assert 0 < len(glyph) < self.width * 2, "ERROR - Invalid glyph set in define_character()"
-        assert 0 <= char_code < 32, "ERROR - Invalid character code set in define_character()"
+        # Bail on incorrect row numbers
+        assert 0 <= digit < 4, "ERROR - Invalid digit set in set_character()"
 
-        self.def_chars[char_code] = glyph
+        char = char.lower()
+        char_val = 0xFF
+        if char == "deg":
+            char_val = self.HT16K33_SEGMENT_DEGREE_CHAR
+        elif char == '-':
+            char_val = self.HT16K33_SEGMENT_MINUS_CHAR
+        elif char == ' ':
+            char_val = self.HT16K33_SEGMENT_SPACE_CHAR
+        elif char in 'abcdef':
+            char_val = ord(char) - 87
+        elif char in '0123456789':
+            char_val = ord(char) - 48
+
+        # Bail on incorrect character values
+        assert char_val != 0xFF, "ERROR - Invalid char string set in set_character()"
+
+        self.buffer[self.POS[digit]] = self.charset[char_val]
+        if has_dot is True: self.buffer[self.POS[digit]] |= 0x80
         return self
 
-    def plot(self, x, y, ink=1, xor=False):
+    def draw(self):
         """
-        Plot a point on the matrix. (0,0) is bottom left as viewed.
+        Writes the current display buffer to the display itself.
+
+        Call this method after updating the buffer to update
+        the LED itself. Rotation handled here.
+        """
+        if self.is_rotated:
+            # Swap digits 0,3 and 1,2
+            a = self.buffer[self.POS[0]]
+            self.buffer[self.POS[0]] = self.buffer[self.POS[3]]
+            self.buffer[self.POS[3]] = a
+
+            a = self.buffer[self.POS[1]]
+            self.buffer[self.POS[1]] = self.buffer[self.POS[2]]
+            self.buffer[self.POS[2]] = a
+
+            # Rotate each digit
+            for i in range(0, 4):
+                a = self.buffer[self.POS[i]]
+                b = (a & 0x07) << 3
+                c = (a & 0x38) >> 3
+                a &= 0xC0
+                self.buffer[self.POS[i]] = a | b | c
+        self._render()
+
+    # *********** PRIVATE METHODS **********
+
+    def _set_case(self, is_upper):
+        """
+        Set the character set used to display alpha characters.
+
+        FROM 4.1.0
 
         Args:
-            x (integer)   X co-ordinate left to right
-            y (integer)   Y co-ordinate bottom to top
-            ink (integer) Pixel color: 1 = 'white', 0 = black. NOTE inverse video mode reverses this. Default: 1
-            xor (bool)    Whether an underlying pixel already of color ink should be inverted. Default: False
+            is_upper (Bool): `True` for upper case characters; `False` for lower case.
 
         Returns:
             The instance (self)
         """
-        # Bail on incorrect row numbers or character values
-        assert (0 <= x < self.width) and (0 <= y < self.height), "ERROR - Invalid coordinate set in plot()"
-
-        if ink not in (0, 1): ink = 1
-        x2 = self._get_row(x)
-        if ink == 1:
-            if self.is_set(x ,y) and xor:
-                self.buffer[x2] ^= (1 << y)
-            else:
-                if self.buffer[x2] & (1 << y) == 0: self.buffer[x2] |= (1 << y)
-        else:
-            if not self.is_set(x ,y) and xor:
-                self.buffer[x2] ^= (1 << y)
-            else:
-                if self.buffer[x2] & (1 << y) != 0: self.buffer[x2] &= ~(1 << y)
+        if self.use_uppercase is not is_upper:
+            self.charset = self.CHARSET_UC if is_upper else self.CHARSET
+            self.use_uppercase = is_upper
         return self
-
-    def is_set(self, x, y):
-        """
-        Indicate whether a pixel is set.
-
-        Args:
-            x (int) X co-ordinate left to right
-            y (int) Y co-ordinate bottom to top
-
-        Returns:
-            Whether the
-        """
-        # Bail on incorrect row numbers or character values
-        assert (0 <= x < self.width) and (0 <= y < self.height), "ERROR - Invalid coordinate set in is_set()"
-
-        x = self._get_row(x)
-        bit = (self.buffer[x] >> y) & 1
-        return True if bit > 0 else False
-
-    # ********** PRIVATE METHODS **********
-
-    def _get_row(self, x):
-        """
-        Convert a column co-ordinate to its memory location
-        in the FeatherWing, and return the location.
-        An out-of-range value returns False
-        """
-        a = 1 + (x << 1)
-        if x < 8: a += 15
-        if a >= self.width * 2: return False
-        return a
 
 class OpenMeteo:
     '''
@@ -691,7 +598,7 @@ def bst_check(now=None):
 
     Args:
         n (tuple): An 8-tuple indicating the request date
-            (see http://docs.micropython.org/en/latest/library/utime.html?highlight=localtime#utime.localtime).
+        (see http://docs.micropython.org/en/latest/library/utime.html?highlight=localtime#utime.localtime).
 
     Returns:
         bool: Whether the specified date is within the BST period (true), or not (false).
@@ -751,9 +658,11 @@ def is_leap_year(year):
 # ********** RTC FUNCTIONS **********
 
 def get_time(timeout=10):
-    # https://github.com/micropython/micropython/blob/master/ports/esp8266/modules/ntptime.py
-    # Modify the standard code to extend the timeout, and catch OSErrors triggered when the
-    # socket operation times out
+    '''
+    Modify the standard code to extend the timeout, and catch OSErrors triggered when the
+    socket operation times out
+    See https://github.com/micropython/micropython/blob/master/ports/esp8266/modules/ntptime.py
+    '''
     log("Getting time")
     ntp_query = bytearray(48)
     ntp_query[0] = 0x1b
@@ -781,12 +690,15 @@ def get_time(timeout=10):
         log("Got NTP data ")
         val = struct.unpack("!I", msg[40:44])[0]
         return_value = val - 3155673600
-    except:
+    except BaseException:
         log_error("Could not set NTP", err)
     if sock: sock.close()
     return return_value
 
 def set_rtc(timeout=10):
+    '''
+    Apply received NTP data to set the RTC
+    '''
     now_time = get_time(timeout)
     if now_time:
         time_data = gmtime(now_time)
@@ -800,15 +712,21 @@ def set_rtc(timeout=10):
 # ********** PREFERENCES FUNCTIONS **********
 
 def load_prefs():
+    '''
+    Read the prefs file from disk
+    '''
     file_data = None
     try:
-        with open("prefs.json", "r") as file:
-            file_data = file.read()
-    except:
+        with open("prefs.json", "r", encoding="utf-8") as in_file:
+            file_data = in_file.read()
+    except FileNotFoundError:
         log_error("No prefs file")
         return
+    except IOError:
+        log_error("Prefs file could not be read")
+        return
 
-    if file_data != None:
+    if file_data is not None:
         try:
             data = json.loads(file_data)
             set_prefs(data)
@@ -819,7 +737,6 @@ def set_prefs(prefs_data):
     '''
     Set the clock's preferences to reflect the specified object's contents.
     '''
-    global prefs
     if "mode" in prefs_data: prefs["mode"] = prefs_data["mode"]
     if "colon" in prefs_data: prefs["colon"] = prefs_data["colon"]
     if "flash" in prefs_data: prefs["flash"] = prefs_data["flash"]
@@ -827,16 +744,18 @@ def set_prefs(prefs_data):
     if "on" in prefs_data: prefs["on"] = prefs_data["on"]
     if "do_log" in prefs_data: prefs["do_log"] = prefs_data["do_log"]
     # FROM 1.4.0
-    if "show_temp" in prefs_data: 
+    if "show_temp" in prefs_data:
         prefs["show_temp"] = prefs_data["show_temp"]
-        if "lat" in prefs_data: 
+        if "lat" in prefs_data:
             prefs["lat"] = prefs_data["lat"]
         else:
             prefs_data["show_temp"] = False
-        if "lng" in prefs_data: 
+        if "lng" in prefs_data:
             prefs["lng"] = prefs_data["lng"]
         else:
             prefs["show_temp"] = False
+    if "show_date" in prefs_data:
+        prefs["show_date"] = prefs_data["show_date"]
 
 def default_prefs():
     '''
@@ -853,6 +772,7 @@ def default_prefs():
     prefs["url"] = "@AGENT"
     prefs["do_log"] = True
     # FROM 1.4.0
+    prefs["show_date"] = True
     prefs["show_temp"] = False
     prefs["lat"] = 0.0
     prefs["lng"] = 0.0
@@ -869,12 +789,11 @@ def connect():
     '''
     global wout
 
-    err = 0
     con_count = 0
     state = True
+    glyph = 0x39
     if wout is None: wout = network.WLAN(network.STA_IF)
     if not wout.active(): wout.active(True)
-    matrix.plot(15, 0, 1).draw()
     log("Connecting")
     if not wout.isconnected():
         # Attempt to connect
@@ -882,18 +801,19 @@ def connect():
         while not wout.isconnected():
             # Flash char 4's decimal point during connection
             sleep(0.5)
-            ink = 0 if state is True else 1
-            matrix.plot(15, 0, ink).draw()
+            seg_led.set_glyph(glyph, 3, state).draw()
             state = not state
             con_count += 1
             if con_count > 120:
-                matrix.plot(15, 0, False).draw()
+                seg_led.set_glyph(glyph, 3, False).draw()
                 log("Unable to connect in 60s")
                 return
     log("Connected")
 
 def initial_connect():
-    # Connect and get the time
+    '''
+    Connect at the start and get the time straight away
+    '''
     connect()
     timecheck = False
     if wout.isconnected():
@@ -901,12 +821,15 @@ def initial_connect():
         if prefs["show_temp"]:
             forecast = ow.request_forecast(prefs["lat"], prefs["lng"])
             process_forecast(forecast)
-    
+
     # Clear the display and start the clock loop
-    matrix.clear()
+    seg_led.clear()
     clock(timecheck)
 
 def process_forecast(forecast):
+    '''
+    Extract the data we want from an incoming OpenMeteo forecast
+    '''
     global saved_temp
 
     if "data" in forecast:
@@ -929,11 +852,32 @@ def clock(timecheck=False):
          savings calculation.
     '''
 
-    mode = prefs["mode"]
-    show_clock = True
     flipped = False
     received = False
+    index = 0
+    flip_time = 3
 
+    # Build an array of face display functions to call in sequence
+    faces = [display_clock]
+    if prefs["show_date"]: faces.append(display_date)
+    if prefs["show_temp"]: faces.append(display_temperature)
+
+    # Ensure faces are display an even number of times (given the periodicity of face switches)
+    # over the base period of 60 seconds. If the flip duration is too high, reduce it. If the
+    # number of faces doesn't fit evenly into the number of slots, pad them out with additional
+    # clock face views, interleaved with the others
+    insert_index = 2
+    while True:
+        if 60 % flip_time == 0:
+            c = 60.0 / float(flip_time)
+            if c % len(faces) == 0: break
+            # Insert an extra clock face to even out the flow
+            faces.insert(insert_index, display_clock)
+            insert_index += 2
+        else:
+            flip_time -= 1
+
+    # Now begin the display cycle
     while True:
         now = gmtime()
         now_hour = now[3]
@@ -941,58 +885,25 @@ def clock(timecheck=False):
         now_sec = now[5]
 
         # FROM 1.4.0
-        # Every five seconds flip the display
-        if now_sec % 5 == 0:
+        # Every `flip_time` seconds, flip the clock face.
+        # The flag `flipped` makes sure we don't re-flip during the period
+        # the temporal condition is true
+        if now_sec % flip_time == 0:
             if not flipped:
-                show_clock = not show_clock
+                index = (index + 1) % len(faces)
                 flipped = True
         else:
             flipped = False
 
-        if prefs["show_temp"] and show_clock is False:
-            display_temperature()
-        else:
-            if prefs["bst"] is True and is_bst() is True:
-                now_hour += 1
-            if now_hour > 23: now_hour -= 24
-
-            is_pm = 0
-            if now_hour > 11: is_pm = 1
-
-            # Calculate and set the hours digits
-            hour = now_hour
-            if mode is False:
-                if is_pm == 1: hour -= 12
-                if hour == 0: hour = 12
-
-            # Display the hour
-            decimal = bcd(hour)
-            first_digit = decimal >> 4
-            if mode is False and hour < 10: first_digit = 10
-            set_digit(first_digit, 0)
-            set_digit(decimal & 0x0F, 4)
-
-            # Display the minute
-            decimal = bcd(now_min)
-            set_digit(decimal >> 4, 8)
-            set_digit(decimal & 0x0F, 12)
-
-            # Set the disconnected marker
-            ink = 0 if wout.isconnected() else 1
-            matrix.plot(15, 7, ink)
-
-            # Set am/pm as needed
-            if mode is False: matrix.plot(15, 0, is_pm)
-
-            # Set the colon and present the display
-            matrix.draw()
+        # Call the current clock face display function
+        faces[index](now)
 
         # Every six hours re-sync the ESP32 RTC
         if now_hour % 6 == 0 and (1 < now_min < 8) and timecheck is False:
             if not wout.isconnected(): connect()
             if wout.isconnected(): timecheck = set_rtc(59)
 
-        # Reset the 'do check' flag every other hour from the above
+        # Reset the RTC sync flag every other hour from the above
         if now_hour % 6 > 0: timecheck = False
 
         # FROM 1.4.0
@@ -1002,33 +913,105 @@ def clock(timecheck=False):
             process_forecast(forecast)
             received = True
 
+        # Reset the temperature check flag every other minute from the above
         if now_min != 7: received = False
 
-        sleep(0.03)
+# ********** DISPLAY FUNCTIONS **********
 
-# ********** WEATHER FUNCTIONS **********
+def display_clock(t):
+    '''
+    Display the current time.
+    '''
+    now_hour = t[3]
+    now_min = t[4]
+    now_sec = t[5]
+    mode = prefs["mode"]
 
-def display_temperature():
+    if prefs["bst"] is True and is_bst() is True:
+        now_hour += 1
+    if now_hour > 23: now_hour -= 24
+
+    is_pm = False
+    if now_hour > 11: is_pm = True
+
+    # Calculate and set the hours digits
+    hour = now_hour
+    if mode is False:
+        if is_pm is True: hour -= 12
+        if hour == 0: hour = 12
+
+    # Display the hour
+    # The decimal point by the first digit is used to indicate connection status
+    # (lit if the clock is disconnected)
+    decimal = bcd(hour)
+    if mode is False and hour < 10:
+        seg_led.set_glyph(0, 0, not wout.isconnected())
+    else:
+        seg_led.set_number(decimal >> 4, 0, not wout.isconnected())
+    seg_led.set_number(decimal & 0x0F, 1, False)
+
+    # Display the minute
+    # The decimal point by the last digit is used to indicate AM/PM,
+    # but only for the 12-hour clock mode (mode == False)
+    decimal = bcd(now_min)
+    seg_led.set_number(decimal >> 4, 2, False)
+    seg_led.set_number(decimal & 0x0F, 3, is_pm if mode is False else False)
+
+    # Set the colon and present the display
+    seg_led.set_colon(prefs["colon"])
+    if prefs["colon"] is True and prefs["flash"] is True:
+        seg_led.set_colon(now_sec % 2 == 0)
+    seg_led.draw()
+
+def display_date(t):
+    '''
+    Display the current date.
+    '''
+    now_month = t[1]
+    now_day = t[2]
+
+    # Display the day
+    # The decimal point by the first digit is used to indicate connection status
+    # (lit if the clock is disconnected)
+    decimal = bcd(now_day)
+    if now_day < 10:
+        seg_led.set_glyph(0, 0, not wout.isconnected())
+    else:
+        seg_led.set_number(decimal >> 4, 0, not wout.isconnected())
+    seg_led.set_number(decimal & 0x0F, 1, False)
+
+    # Display the month
+    decimal = bcd(now_month)
+    if now_month < 10:
+        seg_led.set_glyph(0, 2, False)
+    else:
+        seg_led.set_number(decimal >> 4, 2, False)
+    seg_led.set_number(decimal & 0x0F, 3, False)
+
+    # Set the colon and present the display
+    seg_led.set_colon(False)
+    seg_led.draw()
+
+def display_temperature(_):
     '''
     Display the current temperature.
-    
-    matrix.set_glyph(0, 0)
-    matrix.set_glyph(0x63, 3)
-    matrix.set_colon(False)
-    
+    '''
+    seg_led.set_glyph(0, 0)
+    seg_led.set_glyph(0x63, 3)
+    seg_led.set_colon(False)
+
     temp = saved_temp
     if saved_temp < 0:
-        matrix.set_character("-", 0)
+        seg_led.set_character("-", 0)
         temp = saved_temp * -1
-    
+
     decimal = bcd(temp)
-    matrix.set_number(decimal & 0x0F, 2)
+    seg_led.set_number(decimal & 0x0F, 2)
     if saved_temp < 10:
-        matrix.set_number(0, 1)
+        seg_led.set_number(0, 1)
     else:
-        matrix.set_number(decimal >> 4, 1)
-    matrix.draw()
-    '''
+        seg_led.set_number(decimal >> 4, 1)
+    seg_led.draw()
 
 # ********** LOGGING FUNCTIONS **********
 
@@ -1037,24 +1020,25 @@ def log_error(msg, error_code=0):
     Log an error message
     '''
     if error_code > 0:
-        msg = "[ERROR] {} ({})".format(msg, error_code)
+        msg = f"[ERROR] {msg} ({error_code})"
     else:
-        msg = "[ERROR] {}".format(msg)
-    log(msg)
+        msg = f"[ERROR] {msg}"
+    log(msg, True)
 
 def log_debug(msg):
     '''
     Log a debug message
     '''
-    log("[DEBUG] {}".format(msg))
+    log(f"[DEBUG] {msg}")
 
-def log(msg):
+def log(msg, is_err=False):
     '''
     Log a generic message
     '''
-    now = gmtime()
-    with open(log_path, "a") as file:
-        file.write("{}-{}-{} {}:{}:{} {}\n".format(now[0], now[1], now[2], now[3], now[4], now[5], msg))
+    if prefs["do_log"] or is_err:
+        now = gmtime()
+        with open(LOG_PATH, "a", encoding="utf-8") as append_file:
+            append_file.write(f"{now[0]}-{now[1]}-{now[2]} {now[3]}:{now[4]}:{now[5]} {msg}\n")
 
 # ********** MISC FUNCTIONS **********
 
@@ -1064,23 +1048,21 @@ def sync_text():
     newly booted clock is connecting to the Internet and getting the
     current time.
     '''
-    matrix.clear()
-    sync = b'\x62\x92\x8C\x00\x30\x0E\x30\x00\x1E\x20\x1E\x00\x1C\x22\x14'
-    matrix.set_icon(sync, 0)
-    matrix.draw()
+    seg_led.clear()
+    sync = b'\x6D\x6E\x37\x39'
+    for i in range(0, 4): seg_led.set_glyph(sync[i], i)
+    seg_led.draw()
 
 def bcd(bin_value):
+    '''
+    Convert an integer from 0-99 to Binary Coded Decimal
+    '''
     for i in range(0, 8):
         bin_value = bin_value << 1
         if i == 7: break
         if (bin_value & 0xF00) > 0x4FF: bin_value += 0x300
         if (bin_value & 0xF000) > 0x4FFF: bin_value += 0x3000
     return (bin_value >> 8) & 0xFF
-
-def set_digit(value, posn):
-    glyph = matrix.CHARSET[value]
-    matrix.set_icon(glyph, posn)
-    return posn + len(glyph) + 1
 
 # ********** RUNTIME START **********
 
@@ -1091,19 +1073,21 @@ if __name__ == '__main__':
     # Load non-default prefs, if any
     load_prefs()
 
-    # Initialize hardware
+    # Set up the segment LED display
     i2c = I2C(scl=Pin(22), sda=Pin(23))
-    matrix = HT16K33MatrixFeatherWing(i2c)
-    matrix.set_brightness(prefs["bright"])
+    seg_led = HT16K33Segment(i2c)
+    seg_led.set_brightness(prefs["bright"])
 
     # Add logging
     if prefs["do_log"]:
         try:
-            with open(log_path, "r") as file:
+            with open(LOG_PATH, "r", encoding="utf-8") as file:
                 pass
-        except:
-            with open(log_path, "w") as file:
+        except FileNotFoundError:
+            with open(LOG_PATH, "w", encoding="utf-8") as file:
                 file.write("FeatherCLock Log\n")
+        except IOError:
+            log_error("Prefs file could not be read")
 
     # FROM 1.4.0
     # Instantiate OpenMeteo

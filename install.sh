@@ -59,8 +59,9 @@ read -p "Enter your WiFi password: " pass
 echo -e "\nAdding WiFi credentials to code..."
 sed "s|\"@SSID\"|\"${ssid}\"|; \
     s|\"@PASS\"|\"${pass}\"|" \
-    "$HOME/GitHub/featherclock/clock-${dtype}-${chip}.py" > "main.py"
-echo "Copying \"clock-${dtype}-${chip}.py\" to device \"${dev}\"..."
+    "$HOME/GitHub/featherclock/clock_${dtype}_${chip}.py" > "main.py"
+
+echo "Copying application and data files to device \"${dev}\"..."
 
 # Copy prefs.json if present if the current dir
 [ -e prefs.json ] && pyboard -d ${dev} -f cp prefs.json :prefs.json

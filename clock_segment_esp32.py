@@ -14,15 +14,17 @@ import ustruct as struct
 import urequests as requests
 import ujson as json
 import network
+import sys
 from micropython import const
-from machine import I2C, Pin, RTC
-from utime import gmtime, sleep
+from machine import I2C, Pin, RTC, soft_reset
+from utime import gmtime, sleep, time
 
 # ********** GLOBALS **********
 
 prefs = None
 wout = None
 ow = None
+seg_led = None
 saved_temp = 0
 LOG_PATH = "log.txt"
 
@@ -1066,7 +1068,9 @@ def bcd(bin_value):
 
 # ********** RUNTIME START **********
 
-if __name__ == '__main__':
+def featherclock():
+    global seg_led, ow
+
     # Set default prefs
     default_prefs()
 
@@ -1098,3 +1102,19 @@ if __name__ == '__main__':
     # and attempt to connect
     sync_text()
     initial_connect()
+
+if __name__ == '__main__':
+    try:
+        featherclock()
+    except Exception as err:
+        #err_line = sys.exc_info()[-1].tb_lineno
+        #alt=sys.print_exception(err,)
+        #crash=[f"Error on line {err_line}","\n",err]
+        err_time=str(time())
+        with open("CRASH-"+err_time+".txt", "w", encoding="utf-8") as crash_log:
+            #template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+            #message = template.format(type(err).__name__, err.args)
+            #print(message)
+            sys.print_exception(err, crash_log)
+        # Reboot?
+        #soft_reset()

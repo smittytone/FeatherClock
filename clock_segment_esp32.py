@@ -54,6 +54,8 @@ class HT16K33:
     # *********** PRIVATE PROPERTIES **********
 
     i2c = None
+    render_buffer = None
+    src_buffer = None
     address = 0
     brightness = 15
     flash_rate = 0
@@ -67,6 +69,8 @@ class HT16K33:
         assert 0x00 <= i2c_address < 0x80, "ERROR - Invalid I2C address in HT16K33()"
         self.i2c = i2c
         self.address = i2c_address
+        self.render_buffer = bytearray(17)
+        self.src_buffer = bytearray(16)
         if map is not None:
             assert len(map) == 16, "ERROR - Invalid map size (should be 16) in HT16K33()"
             self.map = map
@@ -146,20 +150,20 @@ class HT16K33:
         """
         Write the display buffer out to I2C
         """
-        buffer = bytearray(17)
-        buffer[0] = 0x00
+
+        self.render_buffer[0] = 0x00
         if len(self.buffer) == 8:
-            src_buffer = bytearray(16)
             for i in range(0,8):
-                src_buffer[i * 2] = self.buffer[i]
+                self.src_buffer[i * 2] = self.buffer[i]
         else:
-            src_buffer = self.buffer
+            for i in range(0,16):
+                self.src_buffer[i] = self.buffer[i]
         # Apply mapping
         for i in range(1,16,2):
-            k = self._map_word((src_buffer[i] << 8) | src_buffer[i - 1])
-            buffer[i] = k & 0xFF
-            buffer[i + 1] = (k >> 8) & 0xFF
-        self.i2c.writeto(self.address, bytes(buffer))
+            k = self._map_word((self.src_buffer[i] << 8) | self.src_buffer[i - 1])
+            self.render_buffer[i] = k & 0xFF
+            self.render_buffer[i + 1] = (k >> 8) & 0xFF
+        self.i2c.writeto(self.address, bytes(self.render_buffer))
 
     def _write_cmd(self, byte):
         """
@@ -868,6 +872,7 @@ def clock(timecheck=False):
     # over the base period of 60 seconds. If the flip duration is too high, reduce it. If the
     # number of faces doesn't fit evenly into the number of slots, pad them out with additional
     # clock face views, interleaved with the others
+    '''
     insert_index = 2
     while True:
         if 60 % flip_time == 0:
@@ -878,6 +883,7 @@ def clock(timecheck=False):
             insert_index += 2
         else:
             flip_time -= 1
+    '''
 
     # Now begin the display cycle
     while True:

@@ -54,7 +54,7 @@ class HT16K33:
     # *********** PRIVATE PROPERTIES **********
 
     i2c = None
-    render_buffer = None
+    tx_buffer = None
     src_buffer = None
     address = 0
     brightness = 15
@@ -69,7 +69,7 @@ class HT16K33:
         assert 0x00 <= i2c_address < 0x80, "ERROR - Invalid I2C address in HT16K33()"
         self.i2c = i2c
         self.address = i2c_address
-        self.render_buffer = bytearray(17)
+        self.tx_buffer = bytearray(17)
         self.src_buffer = bytearray(16)
         if map is not None:
             assert len(map) == 16, "ERROR - Invalid map size (should be 16) in HT16K33()"
@@ -150,8 +150,6 @@ class HT16K33:
         """
         Write the display buffer out to I2C
         """
-
-        self.render_buffer[0] = 0x00
         if len(self.buffer) == 8:
             for i in range(0,8):
                 self.src_buffer[i * 2] = self.buffer[i]
@@ -161,9 +159,9 @@ class HT16K33:
         # Apply mapping
         for i in range(1,16,2):
             k = self._map_word((self.src_buffer[i] << 8) | self.src_buffer[i - 1])
-            self.render_buffer[i] = k & 0xFF
-            self.render_buffer[i + 1] = (k >> 8) & 0xFF
-        self.i2c.writeto(self.address, bytes(self.render_buffer))
+            self.tx_buffer[i] = k & 0xFF
+            self.tx_buffer[i + 1] = (k >> 8) & 0xFF
+        self.i2c.writeto(self.address, bytes(self.tx_buffer))
 
     def _write_cmd(self, byte):
         """
@@ -175,7 +173,7 @@ class HT16K33:
         k = 0
         for i in range(0,16):
             bit = (bb & (1 << i)) >> i
-            value = bit << self.map[i]
+            value = (bit << self.map[i])
             k |= value
         return k
 
@@ -478,7 +476,7 @@ class OpenMeteo:
         self._print_debug("Request URL: " + url)
         return self._send_request(url)
 
-    # *********PRIVATE FUNCTIONS - DO NOT CALL **********
+    # ********* PRIVATE FUNCTIONS - DO NOT CALL **********
 
     def _send_request(self, request_uri):
         '''
@@ -665,8 +663,7 @@ def is_leap_year(year):
 
 def get_time(timeout=10):
     '''
-    Modify the standard code to extend the timeout, and catch OSErrors triggered when the
-    socket operation times out
+    Modify the standard code to extend the timeout, and catch OSErrors triggered when the socket operation times out
     See https://github.com/micropython/micropython/blob/master/ports/esp8266/modules/ntptime.py
     '''
     log("Getting time")
@@ -743,6 +740,8 @@ def set_prefs(prefs_data):
     '''
     Set the clock's preferences to reflect the specified object's contents.
     '''
+    global prefs
+
     if "mode" in prefs_data: prefs["mode"] = prefs_data["mode"]
     if "colon" in prefs_data: prefs["colon"] = prefs_data["colon"]
     if "flash" in prefs_data: prefs["flash"] = prefs_data["flash"]
@@ -814,6 +813,7 @@ def connect():
                 seg_led.set_glyph(glyph, 3, False).draw()
                 log("Unable to connect in 60s")
                 return
+    seg_led.set_glyph(glyph, 3, False).draw()
     log("Connected")
 
 def initial_connect():
@@ -868,23 +868,6 @@ def clock(timecheck=False):
     if prefs["show_date"]: faces.append(display_date)
     if prefs["show_temp"]: faces.append(display_temperature)
 
-    # Ensure faces are display an even number of times (given the periodicity of face switches)
-    # over the base period of 60 seconds. If the flip duration is too high, reduce it. If the
-    # number of faces doesn't fit evenly into the number of slots, pad them out with additional
-    # clock face views, interleaved with the others
-    '''
-    insert_index = 2
-    while True:
-        if 60 % flip_time == 0:
-            c = 60.0 / float(flip_time)
-            if c % len(faces) == 0: break
-            # Insert an extra clock face to even out the flow
-            faces.insert(insert_index, display_clock)
-            insert_index += 2
-        else:
-            flip_time -= 1
-    '''
-
     # Now begin the display cycle
     while True:
         now = gmtime()
@@ -906,7 +889,7 @@ def clock(timecheck=False):
         # Call the current clock face display function
         faces[index](now)
 
-        # Every six hours re-sync the ESP32 RTC
+        # Every six hours re-sync the RTC
         if now_hour % 6 == 0 and (1 < now_min < 8) and timecheck is False:
             if not wout.isconnected(): connect()
             if wout.isconnected(): timecheck = set_rtc(59)

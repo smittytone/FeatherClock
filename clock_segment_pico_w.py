@@ -9,20 +9,24 @@ Licence:   MIT
 
 # ********** IMPORTS **********
 
-import network
 import usocket as socket
 import ustruct as struct
 import urequests as requests
 import ujson as json
+import network
+import sys
 from micropython import const
-from machine import I2C, Pin, RTC
-from utime import gmtime, sleep
+from machine import I2C, Pin, RTC, soft_reset
+from utime import gmtime, sleep, time
 
 # ********** GLOBALS **********
 
 prefs = None
 wout = None
-log_path = "log.txt"
+ow = None
+seg_led = None
+saved_temp = 0
+LOG_PATH = "log.txt"
 
 # ********** CLASSES **********
 
@@ -50,9 +54,12 @@ class HT16K33:
     # *********** PRIVATE PROPERTIES **********
 
     i2c = None
+    tx_buffer = None
+    src_buffer = None
     address = 0
     brightness = 15
     flash_rate = 0
+    blink_rate = 0
     # HT16K33 Row pin to LED column mapping. Default: 1:1
     map = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
@@ -62,6 +69,8 @@ class HT16K33:
         assert 0x00 <= i2c_address < 0x80, "ERROR - Invalid I2C address in HT16K33()"
         self.i2c = i2c
         self.address = i2c_address
+        self.tx_buffer = bytearray(17)
+        self.src_buffer = bytearray(16)
         if map is not None:
             assert len(map) == 16, "ERROR - Invalid map size (should be 16) in HT16K33()"
             self.map = map
@@ -141,20 +150,18 @@ class HT16K33:
         """
         Write the display buffer out to I2C
         """
-        buffer = bytearray(17)
-        buffer[0] = 0x00
         if len(self.buffer) == 8:
-            src_buffer = bytearray(16)
             for i in range(0,8):
-                src_buffer[i * 2] = self.buffer[i]
+                self.src_buffer[i * 2] = self.buffer[i]
         else:
-            src_buffer = self.buffer
+            for i in range(0,16):
+                self.src_buffer[i] = self.buffer[i]
         # Apply mapping
         for i in range(1,16,2):
-            k = self._map_word((src_buffer[i] << 8) | src_buffer[i - 1])
-            buffer[i] = k & 0xFF
-            buffer[i + 1] = (k >> 8) & 0xFF
-        self.i2c.writeto(self.address, bytes(buffer))
+            k = self._map_word((self.src_buffer[i] << 8) | self.src_buffer[i - 1])
+            self.tx_buffer[i] = k & 0xFF
+            self.tx_buffer[i + 1] = (k >> 8) & 0xFF
+        self.i2c.writeto(self.address, bytes(self.tx_buffer))
 
     def _write_cmd(self, byte):
         """
@@ -166,16 +173,9 @@ class HT16K33:
         k = 0
         for i in range(0,16):
             bit = (bb & (1 << i)) >> i
-            value = (bit << self.map[i]) #(bit << i) if self.map[i] > 15 else (bit << self.map[i])
-            k |= value 
+            value = (bit << self.map[i])
+            k |= value
         return k
-
-    def output(self, a):
-        s = "["
-        for i in range(0, len(a)):
-            s += f"{a[i]} "
-        s += "]"
-        print(s)
 
 class HT16K33Segment(HT16K33):
     """
@@ -392,7 +392,7 @@ class HT16K33Segment(HT16K33):
         self._render()
 
     # *********** PRIVATE METHODS **********
-    
+
     def _set_case(self, is_upper):
         """
         Set the character set used to display alpha characters.
@@ -476,7 +476,7 @@ class OpenMeteo:
         self._print_debug("Request URL: " + url)
         return self._send_request(url)
 
-    # *********PRIVATE FUNCTIONS - DO NOT CALL **********
+    # ********* PRIVATE FUNCTIONS - DO NOT CALL **********
 
     def _send_request(self, request_uri):
         '''
@@ -662,9 +662,10 @@ def is_leap_year(year):
 # ********** RTC FUNCTIONS **********
 
 def get_time(timeout=10):
-    # https://github.com/micropython/micropython/blob/master/ports/esp8266/modules/ntptime.py
-    # Modify the standard code to extend the timeout, and catch OSErrors triggered when the
-    # socket operation times out
+    '''
+    Modify the standard code to extend the timeout, and catch OSErrors triggered when the socket operation times out
+    See https://github.com/micropython/micropython/blob/master/ports/esp8266/modules/ntptime.py
+    '''
     log("Getting time")
     ntp_query = bytearray(48)
     ntp_query[0] = 0x1b
@@ -692,12 +693,15 @@ def get_time(timeout=10):
         log("Got NTP data ")
         val = struct.unpack("!I", msg[40:44])[0]
         return_value = val - 3155673600
-    except:
+    except BaseException:
         log_error("Could not set NTP", err)
     if sock: sock.close()
     return return_value
 
 def set_rtc(timeout=10):
+    '''
+    Apply received NTP data to set the RTC
+    '''
     now_time = get_time(timeout)
     if now_time:
         time_data = gmtime(now_time)
@@ -708,15 +712,21 @@ def set_rtc(timeout=10):
     log_error("RTC not set")
     return False
 
-# ********** PREFS MANAGEMENT FUNCTIONS **********
+# ********** PREFERENCES FUNCTIONS **********
 
 def load_prefs():
+    '''
+    Read the prefs file from disk
+    '''
     file_data = None
     try:
-        with open("prefs.json", "r") as file:
+        with open("prefs.json", "r", encoding="utf-8") as file:
             file_data = file.read()
-    except:
+    except FileNotFoundError:
         log_error("No prefs file")
+        return
+    except IOError:
+        log_error("Prefs file could not be read")
         return
 
     if file_data != None:
@@ -726,12 +736,12 @@ def load_prefs():
         except ValueError:
             log_error("Prefs JSON decode error")
 
-
 def set_prefs(prefs_data):
     '''
     Set the clock's preferences to reflect the specified object's contents.
     '''
     global prefs
+
     if "mode" in prefs_data: prefs["mode"] = prefs_data["mode"]
     if "colon" in prefs_data: prefs["colon"] = prefs_data["colon"]
     if "flash" in prefs_data: prefs["flash"] = prefs_data["flash"]
@@ -739,13 +749,13 @@ def set_prefs(prefs_data):
     if "on" in prefs_data: prefs["on"] = prefs_data["on"]
     if "do_log" in prefs_data: prefs["do_log"] = prefs_data["do_log"]
     # FROM 1.4.0
-    if "show_temp" in prefs_data: 
+    if "show_temp" in prefs_data:
         prefs["show_temp"] = prefs_data["show_temp"]
-        if "lat" in prefs_data: 
+        if "lat" in prefs_data:
             prefs["lat"] = prefs_data["lat"]
         else:
             prefs_data["show_temp"] = False
-        if "lng" in prefs_data: 
+        if "lng" in prefs_data:
             prefs["lng"] = prefs_data["lng"]
         else:
             prefs["show_temp"] = False
@@ -784,7 +794,6 @@ def connect():
     '''
     global wout
 
-    err = 0
     con_count = 0
     state = True
     glyph = 0x39
@@ -801,14 +810,16 @@ def connect():
             state = not state
             con_count += 1
             if con_count > 120:
-                seg_led.set_glyph(glyph, 3, True).draw()
+                seg_led.set_glyph(glyph, 3, False).draw()
                 log("Unable to connect in 60s")
                 return
     seg_led.set_glyph(glyph, 3, False).draw()
     log("Connected")
 
 def initial_connect():
-    # Connect and get the time
+    '''
+    Connect at the start and get the time straight away
+    '''
     connect()
     timecheck = False
     if wout.isconnected():
@@ -822,6 +833,9 @@ def initial_connect():
     clock(timecheck)
 
 def process_forecast(forecast):
+    '''
+    Extract the data we want from an incoming OpenMeteo forecast
+    '''
     global saved_temp
 
     if "data" in forecast:
@@ -845,7 +859,7 @@ def clock(timecheck=False):
     '''
 
     flipped = False
-    received_forecast = False
+    received = False
     index = 0
     flip_time = 3
 
@@ -854,21 +868,6 @@ def clock(timecheck=False):
     if prefs["show_date"]: faces.append(display_date)
     if prefs["show_temp"]: faces.append(display_temperature)
 
-    # Ensure faces are displayed an even number of times (given the periodicity of face switches)
-    # over the base period of 60 seconds. If the flip duration is too high, reduce it. If the
-    # number of faces doesn't fit evenly into the number of slots, pad them out with additional
-    # clock face views, interleaved with the others
-    insert_index = 2 
-    while True:
-        if 60 % flip_time == 0:
-            c = 60.0 / float(flip_time)
-            if c % len(faces) == 0: break
-            # Insert an extra clock face to even out the flow
-            faces.insert(insert_index, display_clock)
-            insert_index += 2
-        else:
-            flip_time -= 1
-    
     # Now begin the display cycle
     while True:
         now = gmtime()
@@ -889,8 +888,8 @@ def clock(timecheck=False):
 
         # Show the current clock face
         faces[index](now)
-        
-        # Every six hours re-sync the ESP32 RTC
+
+        # Every six hours re-sync the RTC
         if now_hour % 6 == 0 and (1 < now_min < 8) and timecheck is False:
             if not wout.isconnected(): connect()
             if wout.isconnected(): timecheck = set_rtc(59)
@@ -900,15 +899,15 @@ def clock(timecheck=False):
 
         # FROM 1.4.0
         # Get the outside temperature every hour
-        if prefs["show_temp"] and now_min == 7 and not received_forecast:
+        if prefs["show_temp"] and ow is not None and now_min == 7 and not received:
             forecast = ow.request_forecast(prefs["lat"], prefs["lng"])
             process_forecast(forecast)
-            received_forecast = True
+            received = True
 
         # Reset the temperature check flag every other minute from the above
-        if now_min != 7: received_forecast = False
+        if now_min != 7: received = False
 
-# ********** WEATHER FUNCTIONS **********
+# ********** DISPLAY FUNCTIONS **********
 
 def display_clock(t):
     '''
@@ -991,12 +990,12 @@ def display_temperature(t):
     seg_led.set_glyph(0, 0)
     seg_led.set_glyph(0x63, 3)
     seg_led.set_colon(False)
-    
+
     temp = saved_temp
     if saved_temp < 0:
         seg_led.set_character("-", 0)
         temp = saved_temp * -1
-    
+
     decimal = bcd(temp)
     seg_led.set_number(decimal & 0x0F, 2)
     if saved_temp < 10:
@@ -1029,8 +1028,8 @@ def log(msg, is_err=False):
     '''
     if prefs["do_log"] or is_err:
         now = gmtime()
-        with open(log_path, "a") as file:
-            file.write("{}-{}-{} {}:{}:{} {}\n".format(now[0], now[1], now[2], now[3], now[4], now[5], msg))
+        with open(LOG_PATH, "a", encoding="utf-8") as append_file:
+            append_file.write(f"{now[0]}-{now[1]}-{now[2]} {now[3]}:{now[4]}:{now[5]} {msg}\n")
 
 # ********** MISC FUNCTIONS **********
 
@@ -1058,7 +1057,9 @@ def bcd(bin_value):
 
 # ********** RUNTIME START **********
 
-if __name__ == '__main__':
+def featherclock():
+    global seg_led, ow
+
     # Set default prefs
     default_prefs()
 
@@ -1073,11 +1074,13 @@ if __name__ == '__main__':
     # Add logging
     if prefs["do_log"]:
         try:
-            with open(log_path, "r", encoding="utf-8") as file:
+            with open(LOG_PATH, "r", encoding="utf-8") as file:
                 pass
         except FileNotFoundError:
-            with open(log_path, "w", encoding="utf-8") as file:
+            with open(LOG_PATH, "w", encoding="utf-8") as file:
                 file.write("FeatherCLock Log\n")
+        except IOError:
+            log_error("Prefs file could not be read")
 
     # FROM 1.4.0
     # Instantiate OpenMeteo
@@ -1088,3 +1091,19 @@ if __name__ == '__main__':
     # and attempt to connect
     sync_text()
     initial_connect()
+
+if __name__ == '__main__':
+    try:
+        featherclock()
+    except Exception as err:
+        #err_line = sys.exc_info()[-1].tb_lineno
+        #alt=sys.print_exception(err,)
+        #crash=[f"Error on line {err_line}","\n",err]
+        err_time=str(time())
+        with open("CRASH-"+err_time+".txt", "w", encoding="utf-8") as crash_log:
+            #template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+            #message = template.format(type(err).__name__, err.args)
+            #print(message)
+            sys.print_exception(err, crash_log)
+        # Reboot?
+        #soft_reset()

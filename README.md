@@ -86,7 +86,7 @@ For now, the clock’s prefs are set by sending over a `prefs.json` file with th
   "show_temp": <true/false>,    # Alternate clock with outside temperature
   "lat": float,                 # Your location, in latitude and longitude
   "lng": float
-}  
+}
 ```
 
 Having installed `pyboard.py` as above, you send over prefs file using:
@@ -112,6 +112,7 @@ To get `<FEATHER_DEVICE_PATH>`, you can add my Z Shell function [`dlist()`](http
 - 1.4.0 *Unreleased*
     - Add local temperature readout to alternate with clock readout.
     - Add day and month readout to alternate with the clock readout (and temperature readout, if enabled).
+    - Minimise MicroPython display memory allocations
     - Bring the project up to date.
 - 1.3.0 *24 January 2023*
     - Add experimental [Trinkey RP2040](https://www.adafruit.com/product/5056) version.

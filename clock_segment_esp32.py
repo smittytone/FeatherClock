@@ -813,7 +813,6 @@ def connect():
                 seg_led.set_glyph(glyph, 3, False).draw()
                 log("Unable to connect in 60s")
                 return
-    seg_led.set_glyph(glyph, 3, False).draw()
     log("Connected")
 
 def initial_connect():

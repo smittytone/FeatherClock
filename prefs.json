@@ -6,7 +6,7 @@
   "bst": true,
   "do_log": false,
   "show_date": true,
-  "show_temp": false,
+  "show_temp": true,
   "lat": 0.0,
   "lng": 0.0
 }

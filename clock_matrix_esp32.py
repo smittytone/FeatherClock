@@ -9,20 +9,24 @@ Licence:   MIT
 
 # ********** IMPORTS **********
 
-import network
 import usocket as socket
 import ustruct as struct
 import urequests as requests
 import ujson as json
+import network
+import sys
 from micropython import const
-from machine import I2C, Pin, RTC
-from utime import gmtime, sleep
+from machine import I2C, Pin, RTC, soft_reset
+from utime import gmtime, sleep, time
 
 # ********** GLOBALS **********
 
 prefs = None
 wout = None
-log_path = "log.txt"
+ow = None
+mat_led = None
+saved_temp = 0
+LOG_PATH = "log.txt"
 
 # ********** CLASSES **********
 
@@ -50,9 +54,12 @@ class HT16K33:
     # *********** PRIVATE PROPERTIES **********
 
     i2c = None
+    tx_buffer = None
+    src_buffer = None
     address = 0
     brightness = 15
     flash_rate = 0
+    blink_rate = 0
     # HT16K33 Row pin to LED column mapping. Default: 1:1
     map = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
@@ -62,6 +69,8 @@ class HT16K33:
         assert 0x00 <= i2c_address < 0x80, "ERROR - Invalid I2C address in HT16K33()"
         self.i2c = i2c
         self.address = i2c_address
+        self.tx_buffer = bytearray(33)
+        self.src_buffer = bytearray(32)
         if map is not None:
             assert len(map) == 16, "ERROR - Invalid map size (should be 16) in HT16K33()"
             self.map = map
@@ -141,20 +150,18 @@ class HT16K33:
         """
         Write the display buffer out to I2C
         """
-        buffer = bytearray(17)
-        buffer[0] = 0x00
         if len(self.buffer) == 8:
-            src_buffer = bytearray(16)
             for i in range(0,8):
-                src_buffer[i * 2] = self.buffer[i]
+                self.src_buffer[i * 2] = self.buffer[i]
         else:
-            src_buffer = self.buffer
+            for i in range(0,len(self.buffer)):
+                self.src_buffer[i] = self.buffer[i]
         # Apply mapping
-        for i in range(1,16,2):
-            k = self._map_word((src_buffer[i] << 8) | src_buffer[i - 1])
-            buffer[i] = k & 0xFF
-            buffer[i + 1] = (k >> 8) & 0xFF
-        self.i2c.writeto(self.address, bytes(buffer))
+        for i in range(1,32,2):
+            k = self._map_word((self.src_buffer[i] << 8) | self.src_buffer[i - 1])
+            self.tx_buffer[i] = k & 0xFF
+            self.tx_buffer[i + 1] = (k >> 8) & 0xFF
+        self.i2c.writeto(self.address, bytes(self.tx_buffer))
 
     def _write_cmd(self, byte):
         """
@@ -166,16 +173,9 @@ class HT16K33:
         k = 0
         for i in range(0,16):
             bit = (bb & (1 << i)) >> i
-            value = (bit << self.map[i]) #(bit << i) if self.map[i] > 15 else (bit << self.map[i])
-            k |= value 
+            value = (bit << self.map[i])
+            k |= value
         return k
-
-    def output(self, a):
-        s = "["
-        for i in range(0, len(a)):
-            s += f"{a[i]} "
-        s += "]"
-        print(s)
 
 class HT16K33MatrixFeatherWing(HT16K33):
     """
@@ -190,102 +190,17 @@ class HT16K33MatrixFeatherWing(HT16K33):
     # *********** CONSTANTS **********
 
     CHARSET = [
-        b"\x00\x00",              # space - Ascii 32
-        b"\xfa",                  # !
-        b"\xc0\x00\xc0",          # "
-        b"\x24\x7e\x24\x7e\x24",  # #
-        b"\x24\xd4\x56\x48",      # $
-        b"\xc6\xc8\x10\x26\xc6",  # %
-        b"\x6c\x92\x6a\x04\x0a",  # &
-        b"\xc0",                  # '
-        b"\x7c\x82",              # (
-        b"\x82\x7c",              # )
-        b"\x10\x7c\x38\x7c\x10",  # *
-        b"\x10\x10\x7c\x10\x10",  # +
-        b"\x06\x07",              # ,
-        b"\x10\x10\x10\x10",      # -
-        b"\x06\x06",              # .
-        b"\x04\x08\x10\x20\x40",  # /
-        b"\x7c\x8a\x92\xa2\x7c",  # 0 - Ascii 48
-        b"\x42\xfe\x02",          # 1
-        b"\x46\x8a\x92\x92\x62",  # 2
-        b"\x44\x92\x92\x92\x6c",  # 3
-        b"\x18\x28\x48\xfe\x08",  # 4
-        b"\xf4\x92\x92\x92\x8c",  # 5
-        b"\x3c\x52\x92\x92\x8c",  # 6
-        b"\x80\x8e\x90\xa0\xc0",  # 7
-        b"\x6c\x92\x92\x92\x6c",  # 8
-        b"\x60\x92\x92\x94\x78",  # 9
-        b"\x36\x36",              # : - Ascii 58
-        b"\x36\x37",              #
-        b"\x10\x28\x44\x82",      # <
-        b"\x24\x24\x24\x24\x24",  # =
-        b"\x82\x44\x28\x10",      # >
-        b"\x60\x80\x9a\x90\x60",  # ?
-        b"\x7c\x82\xba\xaa\x78",  # @
-        b"\x7e\x90\x90\x90\x7e",  # A - Ascii 65
-        b"\xfe\x92\x92\x92\x6c",  # B
-        b"\x7c\x82\x82\x82\x44",  # C
-        b"\xfe\x82\x82\x82\x7c",  # D
-        b"\xfe\x92\x92\x92\x82",  # E
-        b"\xfe\x90\x90\x90\x80",  # F
-        b"\x7c\x82\x92\x92\x5c",  # G
-        b"\xfe\x10\x10\x10\xfe",  # H
-        b"\x82\xfe\x82",          # I
-        b"\x0c\x02\x02\x02\xfc",  # J
-        b"\xfe\x10\x28\x44\x82",  # K
-        b"\xfe\x02\x02\x02",      # L
-        b"\xfe\x40\x20\x40\xfe",  # M
-        b"\xfe\x40\x20\x10\xfe",  # N
-        b"\x7c\x82\x82\x82\x7c",  # O
-        b"\xfe\x90\x90\x90\x60",  # P
-        b"\x7c\x82\x92\x8c\x7a",  # Q
-        b"\xfe\x90\x90\x98\x66",  # R
-        b"\x64\x92\x92\x92\x4c",  # S
-        b"\x80\x80\xfe\x80\x80",  # T
-        b"\xfc\x02\x02\x02\xfc",  # U
-        b"\xf8\x04\x02\x04\xf8",  # V
-        b"\xfc\x02\x3c\x02\xfc",  # W
-        b"\xc6\x28\x10\x28\xc6",  # X
-        b"\xe0\x10\x0e\x10\xe0",  # Y
-        b"\x86\x8a\x92\xa2\xc2",  # Z - Ascii 90
-        b"\xfe\x82\x82",          # [
-        b"\x40\x20\x10\x08\x04",  # \
-        b"\x82\x82\xfe",          # ]
-        b"\x20\x40\x80\x40\x20",  # ^
-        b"\x02\x02\x02\x02\x02",  # _
-        b"\xc0\xe0",              # '
-        b"\x04\x2a\x2a\x1e",      # a - Ascii 97
-        b"\xfe\x22\x22\x1c",      # b
-        b"\x1c\x22\x22\x22",      # c
-        b"\x1c\x22\x22\xfc",      # d
-        b"\x1c\x2a\x2a\x10",      # e
-        b"\x10\x7e\x90\x80",      # f
-        b"\x18\x25\x25\x3e",      # g
-        b"\xfe\x20\x20\x1e",      # h
-        b"\xbc\x02",              # i
-        b"\x02\x01\x21\xbe",      # j
-        b"\xfe\x08\x14\x22",      # k
-        b"\xfc\x02",              # l
-        b"\x3e\x20\x18\x20\x1e",  # m
-        b"\x3e\x20\x20 \x1e",     # n
-        b"\x1c\x22\x22\x1c",      # o
-        b"\x3f\x22\x22\x1c",      # p
-        b"\x1c\x22\x22\x3f",      # q
-        b"\x22\x1e\x20\x10",      # r
-        b"\x12\x2a\x2a\x04",      # s
-        b"\x20\x7c\x22\x04",      # t
-        b"\x3c\x02\x02\x3e",      # u
-        b"\x38\x04\x02\x04\x38",  # v
-        b"\x3c\x06\x0c\x06\x3c",  # w
-        b"\x22\x14\x08\x14\x22",  # x
-        b"\x39\x05\x06\x3c",      # y
-        b"\x26\x2a\x2a\x32",      # z - Ascii 122
-        b"\x10\x7c\x82\x82",      #
-        b"\xee",                  # |
-        b"\x82\x82\x7c\x10",      #
-        b"\x40\x80\x40\x80",      # ~
-        b"\x60\x90\x90\x60"       # Degrees sign - Ascii 127
+        b"\x7C\x82\x7C",    # 0
+        b"\x42\xFE\x02",    # 1
+        b"\x4E\x92\x62",    # 2
+        b"\x44\x92\x6C",    # 3
+        b"\xF0\x08\x3E",    # 4
+        b"\x62\x92\x8E",    # 5
+        b"\x7C\x92\x0C",    # 6
+        b"\x8E\x90\xE0",    # 7
+        b"\x6C\x92\x6C",    # 8
+        b"\x60\x92\x7C",    # 9
+        b"\x00\x00\x00"     # space
     ]
 
     # ********** PRIVATE PROPERTIES **********
@@ -565,7 +480,7 @@ class OpenMeteo:
         self._print_debug("Request URL: " + url)
         return self._send_request(url)
 
-    # *********PRIVATE FUNCTIONS - DO NOT CALL **********
+    # ********* PRIVATE FUNCTIONS - DO NOT CALL **********
 
     def _send_request(self, request_uri):
         '''
@@ -751,9 +666,10 @@ def is_leap_year(year):
 # ********** RTC FUNCTIONS **********
 
 def get_time(timeout=10):
-    # https://github.com/micropython/micropython/blob/master/ports/esp8266/modules/ntptime.py
-    # Modify the standard code to extend the timeout, and catch OSErrors triggered when the
-    # socket operation times out
+    '''
+    Modify the standard code to extend the timeout, and catch OSErrors triggered when the socket operation times out
+    See https://github.com/micropython/micropython/blob/master/ports/esp8266/modules/ntptime.py
+    '''
     log("Getting time")
     ntp_query = bytearray(48)
     ntp_query[0] = 0x1b
@@ -781,7 +697,7 @@ def get_time(timeout=10):
         log("Got NTP data ")
         val = struct.unpack("!I", msg[40:44])[0]
         return_value = val - 3155673600
-    except:
+    except :
         log_error("Could not set NTP", err)
     if sock: sock.close()
     return return_value
@@ -802,10 +718,13 @@ def set_rtc(timeout=10):
 def load_prefs():
     file_data = None
     try:
-        with open("prefs.json", "r") as file:
+        with open("prefs.json", "r", encoding="utf-8") as file:
             file_data = file.read()
-    except:
+    except FileNotFoundError:
         log_error("No prefs file")
+        return
+    except IOError:
+        log_error("Prefs file could not be read")
         return
 
     if file_data != None:
@@ -820,6 +739,7 @@ def set_prefs(prefs_data):
     Set the clock's preferences to reflect the specified object's contents.
     '''
     global prefs
+
     if "mode" in prefs_data: prefs["mode"] = prefs_data["mode"]
     if "colon" in prefs_data: prefs["colon"] = prefs_data["colon"]
     if "flash" in prefs_data: prefs["flash"] = prefs_data["flash"]
@@ -827,13 +747,13 @@ def set_prefs(prefs_data):
     if "on" in prefs_data: prefs["on"] = prefs_data["on"]
     if "do_log" in prefs_data: prefs["do_log"] = prefs_data["do_log"]
     # FROM 1.4.0
-    if "show_temp" in prefs_data: 
+    if "show_temp" in prefs_data:
         prefs["show_temp"] = prefs_data["show_temp"]
-        if "lat" in prefs_data: 
+        if "lat" in prefs_data:
             prefs["lat"] = prefs_data["lat"]
         else:
             prefs_data["show_temp"] = False
-        if "lng" in prefs_data: 
+        if "lng" in prefs_data:
             prefs["lng"] = prefs_data["lng"]
         else:
             prefs["show_temp"] = False
@@ -877,26 +797,28 @@ def connect():
     state = True
     if wout is None: wout = network.WLAN(network.STA_IF)
     if not wout.active(): wout.active(True)
-    matrix.plot(15, 0, 1).draw()
+    mat_led.plot(15, 0, 1).draw()
     log("Connecting")
     if not wout.isconnected():
         # Attempt to connect
         wout.connect("@SSID", "@PASS")
         while not wout.isconnected():
-            # Flash char 4's decimal point during connection
+            # Flash corner decimal point during connection
             sleep(0.5)
             ink = 0 if state is True else 1
-            matrix.plot(15, 0, ink).draw()
+            mat_led.plot(15, 0, ink).draw()
             state = not state
             con_count += 1
             if con_count > 120:
-                matrix.plot(15, 0, False).draw()
+                mat_led.plot(15, 0, False).draw()
                 log("Unable to connect in 60s")
                 return
     log("Connected")
 
 def initial_connect():
-    # Connect and get the time
+    '''
+    Connect at the start and get the time straight away
+    '''
     connect()
     timecheck = False
     if wout.isconnected():
@@ -904,12 +826,15 @@ def initial_connect():
         if prefs["show_temp"]:
             forecast = ow.request_forecast(prefs["lat"], prefs["lng"])
             process_forecast(forecast)
-    
+
     # Clear the display and start the clock loop
-    matrix.clear()
+    mat_led.clear()
     clock(timecheck)
 
 def process_forecast(forecast):
+    '''
+    Extract the data we want from an incoming OpenMeteo forecast
+    '''
     global saved_temp
 
     if "data" in forecast:
@@ -932,10 +857,15 @@ def clock(timecheck=False):
          savings calculation.
     '''
 
-    mode = prefs["mode"]
-    show_clock = True
     flipped = False
     received = False
+    index = 0
+    flip_time = 3
+
+    # Build an array of face display functions to call in sequence
+    faces = [display_clock]
+    if prefs["show_date"]: faces.append(display_date)
+    if prefs["show_temp"]: faces.append(display_temperature)
 
     while True:
         now = gmtime()
@@ -944,58 +874,29 @@ def clock(timecheck=False):
         now_sec = now[5]
 
         # FROM 1.4.0
-        # Every five seconds flip the display
-        if now_sec % 5 == 0:
+        # Every `flip_time` seconds, flip the clock face.
+        # The flag `flipped` makes sure we don't re-flip during the period
+        # the temporal condition is true
+        if now_sec % flip_time == 0:
             if not flipped:
-                show_clock = not show_clock
+                index = (index + 1) % len(faces)
                 flipped = True
         else:
             flipped = False
 
-        if prefs["show_temp"] and show_clock is False:
-            display_temperature()
-        else:
-            if prefs["bst"] is True and is_bst() is True:
-                now_hour += 1
-            if now_hour > 23: now_hour -= 24
+        # Call the current clock face display function
+        faces[index](now)
 
-            is_pm = 0
-            if now_hour > 11: is_pm = 1
+        # Set the disconnected marker
+        ink = 0 if wout.isconnected() else 1
+        mat_led.plot(15, 7, ink)
 
-            # Calculate and set the hours digits
-            hour = now_hour
-            if mode is False:
-                if is_pm == 1: hour -= 12
-                if hour == 0: hour = 12
-
-            # Display the hour
-            decimal = bcd(hour)
-            first_digit = decimal >> 4
-            if mode is False and hour < 10: first_digit = 10
-            set_digit(first_digit, 0)
-            set_digit(decimal & 0x0F, 4)
-
-            # Display the minute
-            decimal = bcd(now_min)
-            set_digit(decimal >> 4, 8)
-            set_digit(decimal & 0x0F, 12)
-
-            # Set the disconnected marker
-            ink = 0 if wout.isconnected() else 1
-            matrix.plot(15, 7, ink)
-
-            # Set am/pm as needed
-            if mode is False: matrix.plot(15, 0, is_pm)
-
-            # Set the colon and present the display
-            matrix.draw()
-
-        # Every six hours re-sync the ESP32 RTC
+        # Every six hours re-sync the RTC
         if now_hour % 6 == 0 and (1 < now_min < 8) and timecheck is False:
             if not wout.isconnected(): connect()
             if wout.isconnected(): timecheck = set_rtc(59)
 
-        # Reset the 'do check' flag every other hour from the above
+        # Reset the RTC flag every other hour from the above
         if now_hour % 6 > 0: timecheck = False
 
         # FROM 1.4.0
@@ -1005,16 +906,58 @@ def clock(timecheck=False):
             process_forecast(forecast)
             received = True
 
-        if now_min != 7: received = False
+        # Reset the temperature check flag every other minute from the above
+        # if now_min != 7: received = False
 
-        sleep(0.03)
+        sleep(0.05)
 
 # ********** WEATHER FUNCTIONS **********
+
+def display_clock(t):
+    '''
+    Display the current time.
+    '''
+    set_digit(10, 13)
+    now_hour = t[3]
+    now_min = t[4]
+    mode = prefs["mode"]
+
+    if prefs["bst"] is True and is_bst() is True:
+        now_hour += 1
+    if now_hour > 23: now_hour -= 24
+
+    is_pm = False
+    if now_hour > 11: is_pm = True
+
+    # Calculate and set the hours digits
+    hour = now_hour
+    if mode is False:
+        if is_pm is True: hour -= 12
+        if hour == 0: hour = 12
+
+    # Display the hour
+    decimal = bcd(hour)
+    first_digit = decimal >> 4
+    if mode is False and hour < 10: first_digit = 10
+    set_digit(first_digit, 0)
+    set_digit(decimal & 0x0F, 4)
+
+    # Display the minute
+    decimal = bcd(now_min)
+    set_digit(decimal >> 4, 8)
+    set_digit(decimal & 0x0F, 12)
+
+    # Set am/pm as needed
+    if mode is False: mat_led.plot(15, 0, is_pm)
+
+    # Present the display
+    mat_led.draw()
 
 def display_date(t):
     '''
     Display the current date.
     '''
+    set_digit(10, 13)
     now_month = t[1]
     now_day = t[2]
 
@@ -1023,43 +966,41 @@ def display_date(t):
     # (lit if the clock is disconnected)
     decimal = bcd(now_day)
     if now_day < 10:
-        matrix.set_glyph(0, 0, not wout.isconnected())
+        set_digit(10, 0)
     else:
-        matrix.set_number(decimal >> 4, 0, not wout.isconnected())
-    matrix.set_number(decimal & 0x0F, 1, False)
+        set_digit(decimal >> 4, 0)
+    set_digit(decimal & 0x0F, 4)
 
     # Display the month
     decimal = bcd(now_month)
     if now_month < 10:
-        matrix.set_glyph(0, 2, False)
+        set_digit(10, 8)
     else:
-        matrix.set_number(decimal >> 4, 2, False)
-    matrix.set_number(decimal & 0x0F, 3, False)
+        set_digit(decimal >> 4, 8)
+    set_digit(decimal & 0x0F, 12)
 
-    # Set the colon and present the display
-    matrix.set_colon(False)
-    matrix.draw()
+    # Present the display
+    mat_led.draw()
 
-def display_temperature():
+def display_temperature(_):
     '''
     Display the current temperature.
     '''
-    matrix.set_glyph(0, 0)
-    matrix.set_glyph(0x63, 3)
-    matrix.set_colon(False)
+    mat_led.clear()
+    mat_led.set_icon(b'\x40\x1C\x22\x14', 12)
 
     temp = saved_temp
     if saved_temp < 0:
-        matrix.set_character("-", 0)
+        mat_led.set_icon(b'\x63\x63\x63', 0)
         temp = saved_temp * -1
-    
+
     decimal = bcd(temp)
-    matrix.set_number(decimal & 0x0F, 2)
+    set_digit(decimal & 0x0F, 8)
     if saved_temp < 10:
-        matrix.set_number(0, 1)
+        set_digit(0, 4)
     else:
-        matrix.set_number(decimal >> 4, 1)
-    matrix.draw()
+        set_digit(decimal >> 4, 4)
+    mat_led.draw()
 
 # ********** LOGGING FUNCTIONS **********
 
@@ -1085,8 +1026,8 @@ def log(msg, is_err=False):
     '''
     if prefs["do_log"] or is_err:
         now = gmtime()
-        with open(log_path, "a") as file:
-            file.write("{}-{}-{} {}:{}:{} {}\n".format(now[0], now[1], now[2], now[3], now[4], now[5], msg))
+        with open(LOG_PATH, "a", encoding="utf-8") as append_file:
+            append_file.write(f"{now[0]}-{now[1]}-{now[2]} {now[3]}:{now[4]}:{now[5]} {msg}\n")
 
 # ********** MISC FUNCTIONS **********
 
@@ -1096,10 +1037,10 @@ def sync_text():
     newly booted clock is connecting to the Internet and getting the
     current time.
     '''
-    matrix.clear()
+    mat_led.clear()
     sync = b'\x62\x92\x8C\x00\x30\x0E\x30\x00\x1E\x20\x1E\x00\x1C\x22\x14'
-    matrix.set_icon(sync, 0)
-    matrix.draw()
+    mat_led.set_icon(sync, 0)
+    mat_led.draw()
 
 def bcd(bin_value):
     for i in range(0, 8):
@@ -1110,13 +1051,15 @@ def bcd(bin_value):
     return (bin_value >> 8) & 0xFF
 
 def set_digit(value, posn):
-    glyph = matrix.CHARSET[value]
-    matrix.set_icon(glyph, posn)
+    glyph = mat_led.CHARSET[value]
+    mat_led.set_icon(glyph, posn)
     return posn + len(glyph) + 1
 
 # ********** RUNTIME START **********
 
-if __name__ == '__main__':
+def featherclock():
+    global mat_led, ow
+
     # Set default prefs
     default_prefs()
 
@@ -1125,17 +1068,19 @@ if __name__ == '__main__':
 
     # Initialize hardware
     i2c = I2C(scl=Pin(22), sda=Pin(23))
-    matrix = HT16K33MatrixFeatherWing(i2c)
-    matrix.set_brightness(prefs["bright"])
+    mat_led = HT16K33MatrixFeatherWing(i2c)
+    mat_led.set_brightness(prefs["bright"])
 
     # Add logging
     if prefs["do_log"]:
         try:
-            with open(log_path, "r") as file:
+            with open(LOG_PATH, "r", encoding="utf-8") as file:
                 pass
-        except:
-            with open(log_path, "w") as file:
+        except FileNotFoundError:
+            with open(LOG_PATH, "w", encoding="utf-8") as file:
                 file.write("FeatherCLock Log\n")
+        except IOError:
+            log_error("Prefs file could not be read")
 
     # FROM 1.4.0
     # Instantiate OpenMeteo
@@ -1146,3 +1091,19 @@ if __name__ == '__main__':
     # and attempt to connect
     sync_text()
     initial_connect()
+
+if __name__ == '__main__':
+    try:
+        featherclock()
+    except Exception as err:
+        #err_line = sys.exc_info()[-1].tb_lineno
+        #alt=sys.print_exception(err,)
+        #crash=[f"Error on line {err_line}","\n",err]
+        err_time=str(time())
+        with open("CRASH-"+err_time+".txt", "w", encoding="utf-8") as crash_log:
+            template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+            message = template.format(type(err).__name__, err.args)
+            print(message)
+            sys.print_exception(err, crash_log)
+        # Reboot?
+        #soft_reset()

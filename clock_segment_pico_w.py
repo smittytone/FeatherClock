@@ -983,7 +983,7 @@ def display_date(t):
     seg_led.set_colon(False)
     seg_led.draw()
 
-def display_temperature(t):
+def display_temperature(_):
     '''
     Display the current temperature.
     '''

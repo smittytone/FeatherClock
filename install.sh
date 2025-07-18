@@ -17,6 +17,7 @@ if [[ -z "${dev}" ]]; then
 
     if [[ -z "${dev}" ]]; then
         echo "Usage: ./install.sh /path/to/device"
+        echo "Important: run this script from the featherclock directory"
         echo "Optional: place /path/to/device in the file 'device' in this directory"
         exit 1
     fi
@@ -31,36 +32,44 @@ if ! which pyboard.py > /dev/null; then
 fi
 
 # Make sure the Feather is connected before proceeding
-[ ! -e "${dev}" ] && { echo "[ERROR] Feather or Pico W is not connected to USB"; exit 1; }
+[ ! -e "${dev}" ] && { echo "[ERROR] No Feather or Pico W is connected via USB" ; exit 1; }
 
 # FROM 1.0.10 -- Allow user to choose device type
-read -n 1 -s -p "Press [3] to install on an ESP32, or any other key to install on a Pico W " keypress
+# FROM 1.4.0  -- Change keys
+read -n 1 -s -p "Press [E] to install on an ESP32, or [P] to install on a Pico W " key
 echo
 
-chip="pico-w"
-if [[ ${keypress} == "3" ]]; then
-    chip="esp32"
-fi
+chip="NONE"
+device="NONE"
 
-dtype="segment"
-if [[ ${chip} != "pico-w" ]]; then
-    read -n 1 -s -p "Press [M] to use a matrix LED, or any other key for a segment LED " keypress
+key=${key^^}
+[ ${key} == "E" ] && chip="esp32"
+[ ${key} == "P" ] && chip="pico_w" && device="segment"
+[ ${chip} != "NONE" ] || exit 1
+
+# Select display type for ESP32 builds
+if [[ ${chip} != "pico_w" ]]; then
+    read -n 1 -s -p "Press [M] to use a matrix LED, or [S] for a segment LED " key
     echo
 
-    keypress=${keypress^^}
-    if [[ ${keypress} == "M" ]]; then
-        dtype="matrix"
-    fi
+    key=${key^^}
+    [ ${key} == "M" ] && device="matrix"
+    [ ${key} == "S" ] && device="segment"
+    [ ${device} != "NONE" ] || exit 1
 fi
 
+# Get WiFi details
 read -p "Enter your WiFi SSID: " ssid
 read -p "Enter your WiFi password: " pass
 
+# Build the code
+# NOTE Change path in third SED line if you store this repo in a different location
 echo -e "\nAdding WiFi credentials to code..."
 sed "s|\"@SSID\"|\"${ssid}\"|; \
-    s|\"@PASS\"|\"${pass}\"|" \
-    "$HOME/GitHub/featherclock/clock_${dtype}_${chip}.py" > "main.py"
+     s|\"@PASS\"|\"${pass}\"|" \
+    "${PWD}/clock_${device}_${chip}.py" > "main.py"
 
+# Code transfer
 echo "Copying application and data files to device \"${dev}\"..."
 
 # Copy prefs.json if present if the current dir

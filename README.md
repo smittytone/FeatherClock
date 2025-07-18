@@ -1,20 +1,22 @@
 # FeatherClock 1.4.0 #
 
-This repo contains code written for the [Adafruit Feather HUZZAH ESP32](https://www.adafruit.com/product/3405) and the [Raspberry Pi Pico W](https://datasheets.raspberrypi.com/picow/pico-w-datasheet.pdf), all running [MicroPython](http://micropython.org/). The Feather board requires the addition of female headers.
+This repo contains code written for the [Adafruit Feather HUZZAH ESP32](https://www.adafruit.com/product/3405) (hence the name) and the [Raspberry Pi Pico W](https://datasheets.raspberrypi.com/picow/pico-w-datasheet.pdf), all running [MicroPython](http://micropython.org/). The Feather board requires the addition of female headers.
 
 ![FeatherClock Matrix](./images/img_0420@2x.webp)
 
-It is an attempt to replicate my [Electric Imp clock project](https://github.com/smittytone/Clock). It uses the [Adafruit FeatherWing](https://learn.adafruit.com/adafruit-7-segment-led-featherwings/overview) four-digit, seven-segment LED add-on, or any other HT16K33-based segment LED for that matter. You’ll want a non-FeatherWing display if you’re assembling a Pico W, for which you’re free to select any of its I2C pins. The Feather/FeatherWing combo requires specific pins, but the display assembly fits directly on top of the MCU board into a single, convenient unit. This is the version I use, for this very reason.
+The clock uses the [Adafruit FeatherWing](https://learn.adafruit.com/adafruit-7-segment-led-featherwings/overview) four-digit, seven-segment LED add-on — or any other HT16K33-based segment LED for that matter. You’ll want a non-FeatherWing display if you’re assembling a Pico W, for which you’re free to select any of its I2C pins. The Feather/FeatherWing combo requires specific pins, but the display assembly fits directly on top of the MCU board into a single, convenient unit. This is the version I use, for this very reason.
 
-Currently, the clock has no remote control, which the Electric Imp Platform makes very easy to implement, but is rather less so here. You can [set preferences](#clock-settings), though. Adding a web UI, served locally or remotely, lies in a future phase of the project.
+This code is an attempt to replicate my [Electric Imp clock project](https://github.com/smittytone/Clock). Currently, the clock has no remote control, which the Electric Imp Platform makes very easy to implement, but is rather less so here. You can [set preferences](#clock-settings), though. Adding a web UI, served locally or remotely, lies in a future phase of the project.
 
-**Note** I previously supported the [Adafruit Feather HUZZAH ESP8266](https://www.adafruit.com/product/2821), but this is no longer the case: its RTC is poor and it has too little memory. If you are using this board, you can find the code in the [`archive`](/archive) directory. I will instead be focusing on boards that are more modern.
+**Note** I previously supported the [Adafruit Feather HUZZAH ESP8266](https://www.adafruit.com/product/2821), but this is no longer the case: its RTC is poor and it has too little memory. If you are using this board, you can find the original, un-updated code in the [`archive`](/archive) directory. I will instead be focusing on boards that are more modern.
 
-Version 1.4.0 includes the option to alternate the clock with a readout of the current outdoor temperature. This requires the `prefs.json` file to be updated with additional keys, and this has been done with the sample file included here (see **Clock Settings**, below). It is easy to turn off this feature if you don't require it: change the value of the `show_temp` key to `false`, or comment out the line. By default, the clock will not enable this feature.
+#### New Features
 
-The temperature is collected from [Open Meteo](https://open-meteo.com/), which provides free access for low-volume, non-commercial applications.
+Version 1.4.0 includes the option to alternate the clock with a readout of the current outdoor temperature. This requires the `prefs.json` file to be updated with additional keys, and this has been done with the sample file included here ([see **Clock Settings**, below](#clock-settings)). It is easy to turn off this feature if you don’t require it: change the value of the `show_temp` key to `false`, or comment out the line. By default, the clock **will not** enable this feature.
 
-Version 1.4.0 also includes the option to alternate the clock with a readout of the current day of the month and the month. This requires the `prefs.json` file to be updated with additional keys, and this has been done with the sample file included here (see **Clock Settings**, below). It is easy to turn off this feature if you don't require it: change the value of the `show_date` key to `false`, or comment out the line. By default, the clock will show the date.
+The temperature is collected from [Open Meteo](https://open-meteo.com/), which provides free access for low-volume, non-commercial applications. The code contains a basic Open Meteo integration class, which can be extracted and used elsewhere.
+
+Version 1.4.0 of `featherclock` also includes the option to alternate the clock with a readout of the current day of the month and the month. This requires the `prefs.json` file to be updated with additional keys, and this has been done with the sample file included here ([see **Clock Settings**, below](#clock-settings)). It is easy to turn off this feature if you don’t require it: change the value of the `show_date` key to `false`, or comment out the line. By default, the clock **will** show the date.
 
 ### Installation ###
 

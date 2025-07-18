@@ -1,8 +1,10 @@
 # FeatherClock 1.4.0 #
 
-This repo contains code written for the [Adafruit Feather HUZZAH ESP32](https://www.adafruit.com/product/3405) and the [Raspberry Pi Pico W](https://datasheets.raspberrypi.com/picow/pico-w-datasheet.pdf), all running [MicroPython](http://micropython.org/).
+This repo contains code written for the [Adafruit Feather HUZZAH ESP32](https://www.adafruit.com/product/3405) and the [Raspberry Pi Pico W](https://datasheets.raspberrypi.com/picow/pico-w-datasheet.pdf), all running [MicroPython](http://micropython.org/). The Feather board requires the addition of female headers.
 
-It is an attempt to replicate my [Electric Imp clock project](https://github.com/smittytone/Clock). It uses the [Adafruit FeatherWing](https://learn.adafruit.com/adafruit-7-segment-led-featherwings/overview) four-digit, seven-segment LED add-on, or any other HT16K33-based segment LED for that matter.
+![FeatherClock Matrix](./images/img_0420@2x.webp)
+
+It is an attempt to replicate my [Electric Imp clock project](https://github.com/smittytone/Clock). It uses the [Adafruit FeatherWing](https://learn.adafruit.com/adafruit-7-segment-led-featherwings/overview) four-digit, seven-segment LED add-on, or any other HT16K33-based segment LED for that matter. You’ll want a non-FeatherWing display if you’re assembling a Pico W, for which you’re free to select any of its I2C pins. The Feather/FeatherWing combo requires specific pins, but the display assembly fits directly on top of the MCU board into a single, convenient unit. This is the version I use, for this very reason.
 
 Currently, the clock has no remote control, which the Electric Imp Platform makes very easy to implement, but is rather less so here. You can [set preferences](#clock-settings), though. Adding a web UI, served locally or remotely, lies in a future phase of the project.
 

@@ -10,7 +10,7 @@ This code is an attempt to replicate my [Electric Imp clock project](https://git
 
 **Note** I previously supported the [Adafruit Feather HUZZAH ESP8266](https://www.adafruit.com/product/2821), but this is no longer the case: its RTC is poor and it has too little memory. If you are using this board, you can find the original, un-updated code in the [`archive`](/archive) directory. I will instead be focusing on boards that are more modern.
 
-#### New Features
+### New Features
 
 Version 1.4.0 includes the option to alternate the clock with a readout of the current outdoor temperature. This requires the `prefs.json` file to be updated with additional keys, and this has been done with the sample file included here ([see **Clock Settings**, below](#clock-settings)). It is easy to turn off this feature if you don’t require it: change the value of the `show_temp` key to `false`, or comment out the line. By default, the clock **will not** enable this feature.
 

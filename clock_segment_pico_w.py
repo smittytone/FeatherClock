@@ -729,7 +729,7 @@ def load_prefs():
         log_error("Prefs file could not be read")
         return
 
-    if file_data != None:
+    if file_data is not None:
         try:
             data = json.loads(file_data)
             set_prefs(data)
@@ -813,7 +813,6 @@ def connect():
                 seg_led.set_glyph(glyph, 3, False).draw()
                 log("Unable to connect in 60s")
                 return
-    seg_led.set_glyph(glyph, 3, False).draw()
     log("Connected")
 
 def initial_connect():
@@ -886,7 +885,7 @@ def clock(timecheck=False):
         else:
             flipped = False
 
-        # Show the current clock face
+        # Call the current clock face display function
         faces[index](now)
 
         # Every six hours re-sync the RTC
@@ -1011,16 +1010,16 @@ def log_error(msg, error_code=0):
     Log an error message
     '''
     if error_code > 0:
-        msg = "[ERROR] {} ({})".format(msg, error_code)
+        msg = f"[ERROR] {msg} ({error_code})"
     else:
-        msg = "[ERROR] {}".format(msg)
+        msg = f"[ERROR] {msg}"
     log(msg, True)
 
 def log_debug(msg):
     '''
     Log a debug message
     '''
-    log("[DEBUG] {}".format(msg))
+    log(f"[DEBUG] {msg}")
 
 def log(msg, is_err=False):
     '''

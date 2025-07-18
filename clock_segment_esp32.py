@@ -388,7 +388,7 @@ class HT16K33Segment(HT16K33):
                 b = (a & 0x07) << 3
                 c = (a & 0x38) >> 3
                 a &= 0xC0
-                self.buffer[self.POS[i]] = a | b | c
+                self.buffer[self.POS[i]] = (a | b | c)
         self._render()
 
     # *********** PRIVATE METHODS **********
@@ -602,7 +602,7 @@ def bst_check(now=None):
 
     Args:
         n (tuple): An 8-tuple indicating the request date
-        (see http://docs.micropython.org/en/latest/library/utime.html?highlight=localtime#utime.localtime).
+            (see http://docs.micropython.org/en/latest/library/utime.html?highlight=localtime#utime.localtime).
 
     Returns:
         bool: Whether the specified date is within the BST period (true), or not (false).
@@ -720,8 +720,8 @@ def load_prefs():
     '''
     file_data = None
     try:
-        with open("prefs.json", "r", encoding="utf-8") as in_file:
-            file_data = in_file.read()
+        with open("prefs.json", "r", encoding="utf-8") as file:
+            file_data = file.read()
     except FileNotFoundError:
         log_error("No prefs file")
         return

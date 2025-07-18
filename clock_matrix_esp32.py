@@ -697,12 +697,15 @@ def get_time(timeout=10):
         log("Got NTP data ")
         val = struct.unpack("!I", msg[40:44])[0]
         return_value = val - 3155673600
-    except :
+    except BaseException:
         log_error("Could not set NTP", err)
     if sock: sock.close()
     return return_value
 
 def set_rtc(timeout=10):
+    '''
+    Apply received NTP data to set the RTC
+    '''
     now_time = get_time(timeout)
     if now_time:
         time_data = gmtime(now_time)
@@ -716,6 +719,9 @@ def set_rtc(timeout=10):
 # ********** PREFERENCES FUNCTIONS **********
 
 def load_prefs():
+    '''
+    Read the prefs file from disk
+    '''
     file_data = None
     try:
         with open("prefs.json", "r", encoding="utf-8") as file:
@@ -727,7 +733,7 @@ def load_prefs():
         log_error("Prefs file could not be read")
         return
 
-    if file_data != None:
+    if file_data is not None:
         try:
             data = json.loads(file_data)
             set_prefs(data)
@@ -792,7 +798,6 @@ def connect():
     '''
     global wout
 
-    err = 0
     con_count = 0
     state = True
     if wout is None: wout = network.WLAN(network.STA_IF)
@@ -867,6 +872,7 @@ def clock(timecheck=False):
     if prefs["show_date"]: faces.append(display_date)
     if prefs["show_temp"]: faces.append(display_temperature)
 
+    # Now begin the display cycle
     while True:
         now = gmtime()
         now_hour = now[3]
@@ -896,7 +902,7 @@ def clock(timecheck=False):
             if not wout.isconnected(): connect()
             if wout.isconnected(): timecheck = set_rtc(59)
 
-        # Reset the RTC flag every other hour from the above
+        # Reset the RTC sync flag every other hour from the above
         if now_hour % 6 > 0: timecheck = False
 
         # FROM 1.4.0
@@ -907,7 +913,7 @@ def clock(timecheck=False):
             received = True
 
         # Reset the temperature check flag every other minute from the above
-        # if now_min != 7: received = False
+        if now_min != 7: received = False
 
         sleep(0.05)
 
@@ -1009,16 +1015,16 @@ def log_error(msg, error_code=0):
     Log an error message
     '''
     if error_code > 0:
-        msg = "[ERROR] {} ({})".format(msg, error_code)
+        msg = f"[ERROR] {msg} ({error_code})"
     else:
-        msg = "[ERROR] {}".format(msg)
+        msg = f"[ERROR] {msg}"
     log(msg, True)
 
 def log_debug(msg):
     '''
     Log a debug message
     '''
-    log("[DEBUG] {}".format(msg))
+    log(f"[DEBUG] {msg}")
 
 def log(msg, is_err=False):
     '''
@@ -1043,6 +1049,9 @@ def sync_text():
     mat_led.draw()
 
 def bcd(bin_value):
+    '''
+    Convert an integer from 0-99 to Binary Coded Decimal
+    '''
     for i in range(0, 8):
         bin_value = bin_value << 1
         if i == 7: break
@@ -1051,6 +1060,9 @@ def bcd(bin_value):
     return (bin_value >> 8) & 0xFF
 
 def set_digit(value, posn):
+    '''
+    Convenience function for applying digits to the matrix
+    '''
     glyph = mat_led.CHARSET[value]
     mat_led.set_icon(glyph, posn)
     return posn + len(glyph) + 1
@@ -1066,7 +1078,7 @@ def featherclock():
     # Load non-default prefs, if any
     load_prefs()
 
-    # Initialize hardware
+    # Set up the matrix LED display
     i2c = I2C(scl=Pin(22), sda=Pin(23))
     mat_led = HT16K33MatrixFeatherWing(i2c)
     mat_led.set_brightness(prefs["bright"])

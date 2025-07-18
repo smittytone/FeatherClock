@@ -47,10 +47,9 @@ Version 1.4.0 also includes the option to alternate the clock with a readout of 
 *For ESP32 boards*
 
 1. Connect your assembled FeatherClock (Feather plus LED add-on).
-1. Run `ls /dev/cu*`
-    1. Note the Feather’s device file path.
-1. Update MicroPython:
-    * For ESP32:
+1. Run `ls /dev/cu*` (macOS) or `ls /dev/ttyAM*` (Linux)
+    * Note the Feather’s device file path.
+1. Update/install MicroPython:
         1. `esptool.py --chip esp32 --port <FEATHER_DEVICE_PATH> erase_flash`
         1. `esptool.py --chip esp32 --port <FEATHER_DEVICE_PATH> --baud 460800 write_flash -z 0x1000 ESP32_GENERIC-20241129-v1.24.1.bin`
 1. `cd featherclock`
@@ -63,8 +62,10 @@ Version 1.4.0 also includes the option to alternate the clock with a readout of 
 *For Pico W boards*
 
 1. Connect your assembled FeatherClock (Pico W plus HT16K33-based LED).
-1. `ls /dev/cu*`
-    1. Note the Pico’s device file path.
+1. Run `ls /dev/cu*` (macOS) or `ls /dev/ttyAM*` (Linux)
+    * Note the Pico’s device file path.
+1. Update/install MicroPython:
+    * Copy across (for example) `RPI_PICO_W-20250415-v1.25.0.uf2`
 1. `cd featherclock`
 1. Run `./install.sh <FEATHER_DEVICE_PATH>`
 1. Press `W` for a Pico W.

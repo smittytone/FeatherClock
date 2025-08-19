@@ -824,8 +824,7 @@ def initial_connect():
     if wout.isconnected():
         timecheck = set_rtc(59)
         if prefs["show_temp"]:
-            forecast = ow.request_forecast(prefs["lat"], prefs["lng"])
-            process_forecast(forecast)
+            process_forecast(ow.request_forecast(prefs["lat"], prefs["lng"]))
 
     # Clear the display and start the clock loop
     seg_led.clear()
@@ -837,13 +836,11 @@ def process_forecast(forecast):
     '''
     global saved_temp
 
-    if "data" in forecast:
-        # Get second item in array: this is the weather one hour from now
-        item = forecast["data"]["current"]
-        # Send the icon name to the device
-        saved_temp = int(item["temperature_2m"])
+    if "data" in forecast and "current" in forecast["data"]:
+        current = forecast["data"]["current"]
+        saved_temp = int(current["temperature_2m"])
     else:
-        log_error(forecast["err"])
+        log_error("OpenMeteo error " + forecast["err"])
 
 # ********** CLOCK FUNCTIONS **********
 
@@ -899,8 +896,7 @@ def clock(timecheck=False):
         # FROM 1.4.0
         # Get the outside temperature every hour
         if prefs["show_temp"] and ow is not None and now_min == 7 and not received:
-            forecast = ow.request_forecast(prefs["lat"], prefs["lng"])
-            process_forecast(forecast)
+            process_forecast(ow.request_forecast(prefs["lat"], prefs["lng"]))
             received = True
 
         # Reset the temperature check flag every other minute from the above

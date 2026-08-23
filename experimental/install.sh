@@ -4,7 +4,7 @@
 # Install the clock code and update the preferences to
 # deliver the current time to the clock's RTC.
 #
-# Version 1.3.1c
+# Version 1.6.0c
 
 # Set the Feather's display type using the argument
 display_type=$1

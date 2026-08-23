@@ -3,7 +3,7 @@
 
 # Install the clock code with the requested WiFi credentials
 #
-# Version 1.4.0
+# Version 1.5.0
 
 # Set the Feather's device record using the argument
 dev=$1
@@ -41,6 +41,7 @@ echo
 
 chip="NONE"
 device="NONE"
+v2=""
 
 key=${key^^}
 [ ${key} == "E" ] && chip="esp32"
@@ -56,6 +57,12 @@ if [[ ${chip} != "pico_w" ]]; then
     [ ${key} == "M" ] && device="matrix"
     [ ${key} == "S" ] && device="segment"
     [ ${device} != "NONE" ] || exit 1
+    
+    #  FROM 1.5.0 -- Ask if a V2 is being used
+    read -n 1 -s -p "Press [2] to install on a Huzzah V2, or any other key for any other board " key
+    echo
+    
+    [ ${key} == "2" ] && v2="_v2"
 fi
 
 # Get WiFi details
@@ -67,7 +74,7 @@ read -p "Enter your WiFi password: " pass
 echo -e "\nAdding WiFi credentials to code..."
 sed "s|\"@SSID\"|\"${ssid}\"|; \
      s|\"@PASS\"|\"${pass}\"|" \
-    "${PWD}/clock_${device}_${chip}.py" > "main.py"
+    "${PWD}/clock_${device}_${chip}${v2}.py" > "main.py"
 
 # Code transfer
 echo "Copying application and data files to device \"${dev}\"..."

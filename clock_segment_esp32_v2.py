@@ -1,5 +1,7 @@
 '''
-Clock Segment RP2040 - a very simple four-digit timepiece
+Clock Segment ESP32 - a very simple four-digit timepiece
+This version is coded for the Adafruit Feather Huzzah 32 V2
+(https://learn.adafruit.com/adafruit-esp32-feather-v2/)
 
 Version:   1.5.0
 Author:    smittytone
@@ -1066,7 +1068,7 @@ def featherclock():
     load_prefs()
 
     # Set up the segment LED display
-    i2c = I2C(0, scl=Pin(17), sda=Pin(16))
+    i2c = I2C(scl=Pin(20), sda=Pin(22))
     seg_led = HT16K33Segment(i2c)
     seg_led.set_brightness(prefs["bright"])
 

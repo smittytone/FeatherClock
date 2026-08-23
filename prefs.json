@@ -1,12 +1,12 @@
 { "mode": true,
   "colon": true,
   "flash": false,
-  "bright": 12,
+  "bright": 8,
   "on": true,
   "bst": true,
   "do_log": false,
   "show_date": true,
-  "show_temp": true,
+  "show_temp": false,
   "lat": 0.0,
   "lng": 0.0
 }
